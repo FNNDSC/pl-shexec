@@ -4,25 +4,19 @@
 [![MIT License](https://img.shields.io/github/license/fnndsc/pl-shexec)](https://github.com/FNNDSC/pl-shexec/blob/main/LICENSE)
 [![ci](https://github.com/FNNDSC/pl-shexec/actions/workflows/ci.yml/badge.svg)](https://github.com/FNNDSC/pl-shexec/actions/workflows/ci.yml)
 
-`pl-shexec` is a [_ChRIS_](https://chrisproject.org/)
-_ds_ plugin which takes in ...  as input files and
-creates ... as output files.
+`pl-shexec` is a [_ChRIS_](https://chrisproject.org/) _DS_ plugin executes somewhat arbitrary shell commands across files in its input space. These commands are mostly provided by the default `slim-bullseye` of the parent container.
 
 ## Abstract
 
-...
+Most ChRIS plugins provide single-purpose, dedicated operations which can vary considerably in scope -- for example, straightforward image type conversion, or more complex volumetric segmentation. Regardless of the complexity of the operation, they remain mostly single-purposed. In some cases, however, a more general purposed plugin can be quite useful: one that provides a large space of funcionality. A typical example of such a plugin would be one that leverages shell-type operations and applies them over files in the input space. Such shell operations could be used to rename files/directories, zip/unzip data, perform file/directory filtering, etc. This repo provides such a shell executor, called `shexec`.
 
 ## Installation
 
-`pl-shexec` is a _[ChRIS](https://chrisproject.org/) plugin_, meaning it can
-run from either within _ChRIS_ or the command-line.
-
-[![Get it from chrisstore.co](https://ipfs.babymri.org/ipfs/QmaQM9dUAYFjLVn3PpNTrpbKVavvSTxNLE5BocRCW1UoXG/light.png)](https://chrisstore.co/plugin/pl-shexec)
+`pl-shexec` is a _[ChRIS](https://chrisproject.org/) plugin_, meaning it can run from either within _ChRIS_ or the command-line. [![Get it from chrisstore.co](https://ipfs.babymri.org/ipfs/QmaQM9dUAYFjLVn3PpNTrpbKVavvSTxNLE5BocRCW1UoXG/light.png)](https://chrisstore.co/plugin/pl-shexec)
 
 ## Local Usage
 
-To get started with local command-line usage, use [Apptainer](https://apptainer.org/)
-(a.k.a. Singularity) to run `pl-shexec` as a container:
+To get started with local command-line usage, use [Apptainer](https://apptainer.org/) (a.k.a. Singularity) to run `pl-shexec` as a container:
 
 ```shell
 singularity exec docker://fnndsc/pl-shexec shexec [--args values...] input/ output/
@@ -31,14 +25,12 @@ singularity exec docker://fnndsc/pl-shexec shexec [--args values...] input/ outp
 To print its available options, run:
 
 ```shell
-singularity exec docker://fnndsc/pl-shexec shexec --help
+singularity exec docker://fnndsc/pl-shexec shexec --man
 ```
 
 ## Examples
 
-`shexec` requires two positional arguments: a directory containing
-input data, and a directory where to create output data.
-First, create the input directory and move input data into it.
+`shexec` requires two positional arguments: a directory containing input data, and a directory where output data is created. First, create the input directory and move input data into it.
 
 ```shell
 mkdir incoming/ outgoing/
@@ -60,14 +52,29 @@ docker build -t localhost/fnndsc/pl-shexec .
 
 ### Running
 
-Mount the source code `shexec.py` into a container to try out changes without rebuild.
+Mount the source code `shexec.py` into a container to try out changes without rebuild. In the general case:
 
 ```shell
-docker run --rm -it --userns=host -u $(id -u):$(id -g) \
-    -v $PWD/shexec.py:/usr/local/lib/python3.10/site-packages/shexec.py:ro \
-    -v $PWD/in:/incoming:ro -v $PWD/out:/outgoing:rw -w /outgoing \
+docker run --rm -it --userns=host                                           \
+    -v $PWD/shexec.py:/usr/local/lib/python3.10/site-packages/shexec.py:ro  \
+    -v $PWD/in:/incoming:ro -v $PWD/out:/outgoing:rw -w /outgoing           \
     localhost/fnndsc/pl-shexec shexec /incoming /outgoing
 ```
+
+or more concretely:
+
+```shell
+docker run --rm -it --userns=host                                           \
+    -v $PWD/shexec.py:/usr/local/lib/python3.10/site-packages/shexec.py:ro  \
+    -v $PWD/in:/incoming:ro -v $PWD/out:/outgoing:rw -w /outgoing           \
+    localhost/fnndsc/pl-shexec shexec /incoming /outgoing                   \
+    --fileFilter jpg                                                        \
+    --exec "convert %inputWorkingDir/%inputWorkingFile
+    %outputWorkingDir/%_rmext_inputWorkingFile.png"
+```
+
+to file all files that have `jpg` in their string names and run a CLI `convert` operation.
+
 
 ### Testing
 
