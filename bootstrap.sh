@@ -13,9 +13,9 @@
 # STEP 1. Change these values to your liking.
 
 PLUGIN_NAME="$(basename $(dirname $(realpath $0)))"  # name of current directory
-PLUGIN_TITLE='My ChRIS Plugin'
-SCRIPT_NAME='commandname'
-DESCRIPTION='A ChRIS plugin to do something awesome'
+PLUGIN_TITLE='Execute shell-type commands across input spaces'
+SCRIPT_NAME='shexec'
+DESCRIPTION='A ChRIS plugin that uses pfdo_run to execute shell-type commands across input spaces '
 ORGANIZATION='FNNDSC'
 EMAIL='dev@babyMRI.org'
 
@@ -25,12 +25,12 @@ EMAIL='dev@babyMRI.org'
 # These options will fail unless your Github settings are preconfigured.
 # Repositories under github.com/FNNDSC are preconfigured, so these defaults might work.
 # Please review the file .github/workflows/ci.yml before you push it.
-ENABLE_ACTIONS_TEST=yes
+ENABLE_ACTIONS_TEST=no
 ENABLE_ACTIONS_BUILD=yes
 
 # STEP 2. Uncomment the line below.
 
-#READY=yes
+READY=yes
 
 # STEP 3. Run: ./bootstrap.sh
 
