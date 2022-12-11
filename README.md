@@ -56,7 +56,7 @@ Mount the source code `shexec.py` into a container to try out changes without re
 
 ```shell
 docker run --rm -it --userns=host                                           \
-    -v $PWD/shexec.py:/usr/local/lib/python3.10/site-packages/shexec.py:ro  \
+    -v $PWD/shexec.py:/usr/local/lib/python3.11/site-packages/shexec.py:ro  \
     -v $PWD/in:/incoming:ro -v $PWD/out:/outgoing:rw -w /outgoing           \
     localhost/fnndsc/pl-shexec shexec /incoming /outgoing
 ```
@@ -65,7 +65,7 @@ or more concretely:
 
 ```shell
 docker run --rm -it --userns=host                                           \
-    -v $PWD/shexec.py:/usr/local/lib/python3.10/site-packages/shexec.py:ro  \
+    -v $PWD/shexec.py:/usr/local/lib/python3.11/site-packages/shexec.py:ro  \
     -v $PWD/in:/incoming:ro -v $PWD/out:/outgoing:rw -w /outgoing           \
     localhost/fnndsc/pl-shexec shexec /incoming /outgoing                   \
     --fileFilter jpg                                                        \
