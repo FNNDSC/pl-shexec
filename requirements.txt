@@ -1,1 +1,12 @@
 chris_plugin==0.1.1
+Faker
+pfdo
+pfdo-run
+pfmisc
+pftree
+pudb
+Pygments
+python-dateutil
+six
+text-unidecode
+urwid
