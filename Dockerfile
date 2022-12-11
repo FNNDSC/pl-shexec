@@ -14,6 +14,24 @@ RUN pip install -r requirements.txt
 
 COPY . .
 ARG extras_require=none
-RUN pip install ".[${extras_require}]"
+# RUN pip install ".[${extras_require}]"
 
-CMD ["shexec", "--help"]
+RUN   pip install --upgrade pip                                   && \
+      pip install ".[${extras_require}]"                          && \
+      pip install -r requirements.txt                             && \
+      pip install .                                               && \
+      apt update  && apt -y upgrade                               && \
+      apt install -y zip unzip inetutils-tools                    && \
+      apt install -y bc binutils  perl psmisc                     && \
+      apt install -y tar uuid-dev                                 && \
+      apt install -y neovim                                       && \
+      apt install -y imagemagick                                  && \
+      apt install -y tzdata                                       && \
+      apt-get install -y locales                                  && \
+      export LANGUAGE=en_US.UTF-8                                 && \
+      export LANG=en_US.UTF-8                                     && \
+      export LC_ALL=en_US.UTF-8                                   && \
+      locale-gen en_US.UTF-8                                      && \
+      dpkg-reconfigure locales
+
+CMD ["shexec", "--man"]
