@@ -54,11 +54,11 @@ def synopsis(ab_shortOnly = False):
     shortSynopsis =  '''
     NAME
 
-        ''' + __pkg.name + '''
+        shexec
 
     SYNOPSIS
 
-        ''' + __pkg.name + package_CLIDS
+        shexec ''' + package_CLIDS
 
     description = '''
 
@@ -68,18 +68,18 @@ def synopsis(ab_shortOnly = False):
 
     ARGS ''' + package_argsSynopsisDS + '''
 
-    NOTE: ''' + package_tagProcessingHelp + '''
+    NOTE: ''' + package_CLItagHelp + package_specialFunctionHelp + '''
 
     EXAMPLES
 
     Perform a `shexec` down some input directory and convert all input
     ``jpg`` files to ``png`` in the output tree:
 
-        shexec                                                 \\
-            --inputDir /var/www/html/data --fileFilter jpg      \\
-            --outputDir /var/www/html/png                       \\
+        shexec                                                      \\
+            /var/www/html/data --fileFilter jpg                     \\
+            /var/www/html/png                                       \\
             --exec "convert %inputWorkingDir/%inputWorkingFile
-            %outputWorkingDir/%_rmext_inputWorkingFile.png"     \\
+            %outputWorkingDir/%_rmext_inputWorkingFile.png"         \\
             --threads 0 --printElapsedTime
 
     The above will find all files in the tree structure rooted at
@@ -96,11 +96,11 @@ def synopsis(ab_shortOnly = False):
     Consider an example where only one file in a branched inputdir
     space is to be preserved:
 
-        shexec                                                  \\
-            --inputDir (pwd)/raw --outputDir (pwd)/out          \\
-            --dirFilter 100307                                  \\
+        shexec                                                      \\
+            $PWD/raw $PWD/out                                       \\
+            --dirFilter 100307                                      \\
             --exec "cp %inputWorkingDir/brain.mgz
-            %outputWorkingDir/brain.mgz"                        \\
+            %outputWorkingDir/brain.mgz"                            \\
             --threads 0 --verbosity 3 --noJobLogging
 
     Here, the input directory space is pruned for a directory leaf
@@ -156,7 +156,8 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
 
     options.str_version     = __version__
     options.str_desc        = synopsis(True)
-
+    options.inputDir        = options.inputdir      # Camel case "annoyances"
+    options.outputDir       = options.outputdir
 
     pf_shexec               = pfdo_run.pfdo_run(vars(options))
     d_run                   = pf_shexec.run(timerStart = True)
