@@ -22,7 +22,7 @@ RUN   pip install --upgrade pip                                   && \
       pip install .                                               && \
       apt update  && apt -y upgrade                               && \
       apt install -y zip unzip inetutils-tools                    && \
-      apt install -y bc binutils  perl psmisc                     && \
+      apt install -y bc binutils  perl psmisc telnet              && \
       apt install -y tar uuid-dev                                 && \
       apt install -y neovim                                       && \
       apt install -y imagemagick                                  && \
@@ -34,4 +34,4 @@ RUN   pip install --upgrade pip                                   && \
       locale-gen en_US.UTF-8                                      && \
       dpkg-reconfigure locales
 
-CMD ["shexec", "--man"]
+CMD ["shexec", "--man", "/tmp", "/tmp"]
