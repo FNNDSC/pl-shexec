@@ -8,7 +8,7 @@
 
 ## Abstract
 
-Most ChRIS plugins provide single-purpose, dedicated operations which can vary considerably in scope -- for example, straightforward image type conversion, or more complex volumetric segmentation. Regardless of the complexity of the operation, they remain mostly single-purposed. In some cases, however, a more general purposed plugin can be quite useful: one that provides a large space of funcionality. A typical example of such a plugin would be one that leverages shell-type operations and applies them over files in the input space. Such shell operations could be used to rename files/directories, zip/unzip data, perform file/directory filtering, etc. This repo provides such a shell executor, called `shexec`.
+Most ChRIS plugins provide single-purpose, dedicated operations which can vary considerably in scope -- for example, straightforward image type conversion, or more complex volumetric segmentation. Regardless of the complexity of the operation, they remain mostly single-purposed. In some cases, however, a more general purposed plugin can be quite useful: one that provides a larger space of simpler functionality. A typical example of such a plugin would be one that leverages shell-type operations and applies them over files in the input space. Such shell operations could be used to rename files/directories, zip/unzip data, perform file/directory filtering, check for load average, etc. This repo provides such a shell executor, called `shexec`.
 
 ## Installation
 
