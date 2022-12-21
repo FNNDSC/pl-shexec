@@ -7,7 +7,7 @@ from importlib.metadata import Distribution
 from chris_plugin import chris_plugin, PathMapper
 
 __pkg       = Distribution.from_name(__package__)
-__version__ = '1.0.8'
+__version__ = '1.2.0'
 
 import  os, sys
 import  pudb
