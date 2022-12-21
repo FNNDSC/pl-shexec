@@ -40,7 +40,7 @@ singularity exec docker://fnndsc/pl-shexec:latest shexec [--args] incoming/ outg
 
 ## Development
 
-Instructions for developers.
+This section is of interest to developers.
 
 ### Building
 
