@@ -7,7 +7,7 @@ from importlib.metadata import Distribution
 from chris_plugin import chris_plugin, PathMapper
 
 __pkg       = Distribution.from_name(__package__)
-__version__ = '1.2.2'
+__version__ = '1.2.4'
 
 import  os, sys
 import  pudb
@@ -15,6 +15,12 @@ import  pudb
 import  pfmisc
 from    pfmisc._colors              import Colors
 from    pfmisc                      import other
+
+from    pftag               import pftag
+from    pflog               import pflog
+
+from    argparse            import Namespace
+from    datetime            import datetime
 
 from    pfdo_run                    import  pfdo_run
 from    pfdo_run.__main__           import  package_CLIDS,              \
@@ -25,14 +31,14 @@ from    pfdo_run.__main__           import  parserDS
 
 
 DISPLAY_TITLE = r"""
-       _            _                        
-      | |          | |                       
- _ __ | |______ ___| |__   _____  _____  ___ 
+       _            _
+      | |          | |
+ _ __ | |______ ___| |__   _____  _____  ___
 | '_ \| |______/ __| '_ \ / _ \ \/ / _ \/ __|
-| |_) | |      \__ \ | | |  __/>  <  __/ (__ 
+| |_) | |      \__ \ | | |  __/>  <  __/ (__
 | .__/|_|      |___/_| |_|\___/_/\_\___|\___|
-| |                                          
-|_|                                          
+| |
+|_|
 """
 
 str_desc    = '''
@@ -58,7 +64,9 @@ def synopsis(ab_shortOnly = False):
 
     SYNOPSIS
 
-        shexec ''' + package_CLIDS
+        shexec                                                                  \\
+        [--pftelDB <DBURL>]                                                     \\''' \
+        + package_CLIDS
 
     description = '''
 
@@ -66,7 +74,27 @@ def synopsis(ab_shortOnly = False):
 
         This plugin is a thin wrapper about ``pfdo_run``.
 
-    ARGS ''' + package_argsSynopsisDS + '''
+    ARGS
+
+        [--pftelDB <DBURLpath>]
+        If specified, send telemetry logging to the pftel server and the
+        specfied DBpath:
+
+            --pftelDB   <URLpath>/<logObject>/<logCollection>/<logEvent>
+
+        for example
+
+            --pftelDB http://localhost:22223/api/v1/weather/massachusetts/boston
+
+        Indirect parsing of each of the object, collection, event strings is
+        available through `pftag` so any embedded pftag SGML is supported. So
+
+            http://localhost:22223/api/vi/%platform/%timestamp_strmsk|**********_/%name
+
+        would be parsed to, for example:
+
+            http://localhost:22223/api/vi/Linux/2023-03-11/posix''' +\
+    package_argsSynopsisDS + '''
 
     NOTE: ''' + package_CLItagHelp + package_specialFunctionHelp + '''
 
@@ -132,6 +160,37 @@ def earlyExit_check(args) -> int:
         return 1
     return 0
 
+def epilogue(options:Namespace, dt_start:datetime = None) -> None:
+    """
+    Some epilogue cleanup -- basically determine a delta time
+    between passed epoch and current, and if indicated in CLI
+    pflog this.
+
+    Args:
+        options (Namespace): option space
+        dt_start (datetime): optional start date
+    """
+    tagger:pftag.Pftag  = pftag.Pftag({})
+    dt_end:datetime     = pftag.timestamp_dt(tagger(r'%timestamp')['result'])
+    ft:float            = 0.0
+    if dt_start:
+        ft              = (dt_end - dt_start).total_seconds()
+    if options.pftelDB:
+        options.pftelDB = '/'.join(options.pftelDB.split('/')[:-1] + ['shexec'])
+        d_log:dict      = pflog.pfprint(
+                            options.pftelDB,
+                            f"Shutting down after {ft} seconds.",
+                            appName     = 'pl-shexec',
+                            execTime    = ft
+                        )
+
+parserDS.add_argument(
+            "--pftelDB",
+            help    = "an optional pftel telemetry logger, of form '<pftelURL>/api/v1/<object>/<collection>/<event>'",
+            default = ''
+)
+
+
 # The main function of this *ChRIS* plugin is denoted by this ``@chris_plugin`` "decorator."
 # Some metadata about the plugin is specified here. There is more metadata specified in setup.py.
 #
@@ -149,7 +208,9 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
     Simple call to pfdo_run
     """
 
-    d_run                       : dict = {}
+    tagger:pftag.Pftag      = pftag.Pftag({})
+    dt_start:datetime       = pftag.timestamp_dt(tagger(r'%timestamp')['result'])
+    d_run:dict              = {}
 
     if int(options.verbosity)   : print(DISPLAY_TITLE)
     if earlyExit_check(options): return 1
@@ -159,14 +220,15 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
     options.inputDir        = options.inputdir      # Camel case "annoyances"
     options.outputDir       = options.outputdir
 
-    pf_shexec               = pfdo_run.pfdo_run(vars(options))
-    d_run                   = pf_shexec.run(timerStart = True)
+    pf_shexec:pfdo_run.pfdo_run = pfdo_run.pfdo_run(vars(options))
+    d_run                       = pf_shexec.run(timerStart = True)
 
     if options.printElapsedTime:
         pf_shexec.dp.qprint(
             "Elapsed time = %f seconds" % d_run['runTime']
         )
 
+    epilogue(options, dt_start)
     return 0
 
 if __name__ == '__main__':
