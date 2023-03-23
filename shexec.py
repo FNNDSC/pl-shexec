@@ -7,7 +7,7 @@ from importlib.metadata import Distribution
 from chris_plugin import chris_plugin, PathMapper
 
 __pkg       = Distribution.from_name(__package__)
-__version__ = '1.2.8'
+__version__ = '1.2.10'
 
 import  os, sys
 os.environ['XDG_CONFIG_HOME'] = '/tmp'
@@ -18,11 +18,11 @@ import  pfmisc
 from    pfmisc._colors              import Colors
 from    pfmisc                      import other
 
-from    pftag               import pftag
-from    pflog               import pflog
+from    pftag                       import pftag
+from    pflog                       import pflog
 
-from    argparse            import Namespace
-from    datetime            import datetime
+from    argparse                    import Namespace
+from    datetime                    import datetime
 
 from    pfdo_run                    import  pfdo_run
 from    pfdo_run.__main__           import  package_CLIDS,              \
@@ -162,41 +162,12 @@ def earlyExit_check(args) -> int:
         return 1
     return 0
 
-def epilogue(options:Namespace, dt_start:datetime = None) -> None:
-    """
-    Some epilogue cleanup -- basically determine a delta time
-    between passed epoch and current, and if indicated in CLI
-    pflog this.
-
-    Args:
-        options (Namespace): option space
-        dt_start (datetime): optional start date
-    """
-    tagger:pftag.Pftag  = pftag.Pftag({})
-    dt_end:datetime     = pftag.timestamp_dt(tagger(r'%timestamp')['result'])
-    ft:float            = 0.0
-    if dt_start:
-        ft              = (dt_end - dt_start).total_seconds()
-    if options.pftelDB:
-        options.pftelDB = '/'.join(options.pftelDB.split('/')[:-1] + ['shexec'])
-        d_log:dict      = pflog.pfprint(
-                            options.pftelDB,
-                            f"Shutting down after {ft} seconds.",
-                            appName     = 'pl-shexec',
-                            execTime    = ft
-                        )
-
 parserDS.add_argument(
             "--pftelDB",
             help    = "an optional pftel telemetry logger, of form '<pftelURL>/api/v1/<object>/<collection>/<event>'",
             default = ''
 )
 
-
-# The main function of this *ChRIS* plugin is denoted by this ``@chris_plugin`` "decorator."
-# Some metadata about the plugin is specified here. There is more metadata specified in setup.py.
-#
-# documentation: https://fnndsc.github.io/chris_plugin/chris_plugin.html#chris_plugin
 @chris_plugin(
     parser              = parserDS,
     title               = 'Execute shell-type commands across input spaces',
@@ -205,13 +176,15 @@ parserDS.add_argument(
     min_cpu_limit       = '1000m',      # millicores, e.g. "1000m" = 1 CPU core
     min_gpu_limit       = 0             # set min_gpu_limit=1 to enable GPU
 )
+@pflog.tel_logTime(
+    event               = 'shexec',
+    log                 = 'filter a specific upstream inputfile into outputdir'
+)
 def main(options: Namespace, inputdir: Path, outputdir: Path):
     """
     Simple call to pfdo_run
     """
 
-    tagger:pftag.Pftag      = pftag.Pftag({})
-    dt_start:datetime       = pftag.timestamp_dt(tagger(r'%timestamp')['result'])
     d_run:dict              = {}
 
     if int(options.verbosity)   : print(DISPLAY_TITLE)
@@ -230,7 +203,6 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
             "Elapsed time = %f seconds" % d_run['runTime']
         )
 
-    epilogue(options, dt_start)
     return 0
 
 if __name__ == '__main__':
