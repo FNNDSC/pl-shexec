@@ -7,7 +7,7 @@ from importlib.metadata import Distribution
 from chris_plugin import chris_plugin, PathMapper
 
 __pkg       = Distribution.from_name(__package__)
-__version__ = '1.2.14'
+__version__ = '1.2.16'
 
 import  os, sys
 os.environ['XDG_CONFIG_HOME'] = '/tmp'
