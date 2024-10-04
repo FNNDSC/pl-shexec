@@ -1,4 +1,4 @@
-chris_plugin==0.1.2
+chris_plugin>=0.3.0
 Faker==6.4.1
 pfdo==5.0.0
 pfdo-run==3.2.6
