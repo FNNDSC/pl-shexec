@@ -28,6 +28,7 @@ RUN   pip install --upgrade pip                                   && \
       apt install -y imagemagick                                  && \
       apt install -y tzdata                                       && \
       apt-get install -y locales                                  && \
+      apt-get install dcmtk -y                                    && \
       export LANGUAGE=en_US.UTF-8                                 && \
       export LANG=en_US.UTF-8                                     && \
       export LC_ALL=en_US.UTF-8                                   && \
