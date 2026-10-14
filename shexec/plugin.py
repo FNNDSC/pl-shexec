@@ -12,6 +12,7 @@ the first call of it; pl-freesurfer is the second, with FreeSurfer in the image 
 Key components:
     - plugin_build: the factory
     - synopsis_build: the manual text for a spec
+    - parser_omit, manualText_omit: take flags a plugin does not offer out of its parser and manual
     - PLUGIN_SIGNATURE: the signature chris_plugin inspects
 
 Typical usage:
@@ -30,7 +31,8 @@ from __future__ import annotations
 
 import argparse
 import inspect
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from chris_plugin import chris_plugin
@@ -49,6 +51,47 @@ PLUGIN_SIGNATURE: inspect.Signature = inspect.Signature(
     ],
     return_annotation=int,
 )
+
+
+ENTRY_LINE: re.Pattern[str] = re.compile(r"^ {8}(?:\[--(?P<flag>[A-Za-z][\w-]*)|[\[<])")
+
+
+def manualText_omit(text: str, flags: Sequence[str]) -> str:
+    r"""The shared manual text without the entries for the given flags.
+
+    The shared sections write each flag in one of two forms, both indented eight
+    spaces: a synopsis line, ``[--threads <numThreads>]`` ending in a continuation
+    backslash, and an ARGS entry, that line followed by its prose up to the next
+    entry, which opens with ``[`` or ``<``, or the next section heading. Both are
+    removed. A synopsis line that loses its successor keeps no dangling backslash.
+
+    Args:
+        text: a block of the shared manual, ``CLI_DS`` or ``ARGS_SYNOPSIS_DS``.
+        flags: flag names without dashes.
+
+    Returns:
+        The block without those flags.
+
+    Example:
+        >>> manualText_omit("        [--a] \\\n        [--b]\n", ["b"])
+        '        [--a]\n'
+    """
+    if not flags:
+        return text
+    omitted: set[str] = set(flags)
+    kept: list[str] = []
+    skipping: bool = False
+    for line in text.splitlines(keepends=True):
+        match: re.Match[str] | None = ENTRY_LINE.match(line)
+        if match:
+            skipping = match.group("flag") in omitted
+        elif skipping and line.strip() and not line.startswith(" " * 8):
+            skipping = False
+        if not skipping:
+            kept.append(line)
+    if kept and text.rstrip().endswith("]") and kept[-1].rstrip().endswith("\\"):
+        kept[-1] = kept[-1].rstrip()[:-1].rstrip() + "\n"
+    return "".join(kept)
 
 
 def synopsis_build(spec: PluginSpec, shortOnly: bool = False) -> str:
@@ -70,13 +113,20 @@ def synopsis_build(spec: PluginSpec, shortOnly: bool = False) -> str:
     SYNOPSIS
 
         {spec.name} \\"""
-        + CLI_DS
+        + manualText_omit(CLI_DS, spec.omit)
         + "\n\n    BRIEF EXAMPLE\n"
         + spec.briefExample
     )
     if shortOnly:
         return shortSynopsis
-    return shortSynopsis + spec.description + "\n    ARGS " + ARGS_SYNOPSIS_DS + TAG_HELP + spec.examples
+    return (
+        shortSynopsis
+        + spec.description
+        + "\n    ARGS "
+        + manualText_omit(ARGS_SYNOPSIS_DS, spec.omit)
+        + TAG_HELP
+        + spec.examples
+    )
 
 
 def manual_build(spec: PluginSpec) -> Manual:
@@ -92,13 +142,57 @@ def manual_build(spec: PluginSpec) -> Manual:
     )
 
 
+def parser_omit(parser: argparse.ArgumentParser, names: Sequence[str]) -> None:
+    """Take flags out of a parser, keeping each one's default as a fixed value.
+
+    argparse has no public way to remove an argument, and the parser is assembled
+    from pftree's, pfdo's and pfdo_run's parents, so the flag is removed from the
+    three places argparse keeps it: the parser's actions, which chris_plugin
+    serialises; the group that lists it in ``--help``; and the option-string map
+    the command line is parsed against. Its default stays in the namespace, set
+    with ``set_defaults``, so the engine reads the value it always did.
+
+    Args:
+        parser: the assembled parser, changed in place.
+        names: destination names, as ``threads``.
+
+    Raises:
+        ValueError: a name the parser does not have; a misspelt omission would
+            otherwise leave the flag in place unnoticed.
+
+    Example:
+        >>> p = argparse.ArgumentParser(); _ = p.add_argument("--n", dest="n", default=3)
+        >>> parser_omit(p, ["n"]); p.parse_args([]).n
+        3
+    """
+    # argparse internals: _actions, _action_groups, _group_actions and
+    # _option_string_actions are private but stable from 3.11 to 3.14, and
+    # chris_plugin itself reads _actions; CI runs every one of those versions.
+    actions: dict[str, argparse.Action] = {action.dest: action for action in parser._actions}
+    unknown: list[str] = [name for name in names if name not in actions]
+    if unknown:
+        raise ValueError(f"cannot omit flags the parser does not have: {', '.join(unknown)}")
+    for name in names:
+        action: argparse.Action = actions[name]
+        parser._remove_action(action)
+        for group in parser._action_groups:
+            if action in group._group_actions:
+                group._group_actions.remove(action)
+        for optionString in action.option_strings:
+            parser._option_string_actions.pop(optionString, None)
+        parser.set_defaults(**{name: action.default})
+
+
 def parser_forSpec(spec: PluginSpec) -> argparse.ArgumentParser:
-    """pfdo_run's parser named for the plugin, its defaults set from the spec.
+    """pfdo_run's parser named for the plugin, its omitted flags removed, its defaults set from the spec.
 
     The defaults are set on the parser rather than applied afterwards, so the
     description ``chris_plugin_info`` serialises carries them and ChRIS shows them.
+    They are set after the omission, so a spec can pin an omitted flag to a value
+    of its own.
     """
     parser: argparse.ArgumentParser = parser_build(standalone=False, command=spec.name, version=spec.version)
+    parser_omit(parser, spec.omit)
     parser.set_defaults(**spec.defaults)
     return parser
 
