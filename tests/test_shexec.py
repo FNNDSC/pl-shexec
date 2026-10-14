@@ -75,7 +75,8 @@ def test_json_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None
 
 def test_jobFiles_writesTheFourFilesToo(tmp_path: Path) -> None:
     inputDir, outputDir = tree_make(tmp_path)
-    options = parser.parse_args(["--fileFilter", "txt", "--jobFiles", "--exec", "wc -l %{inputWorkingDir}/%{inputWorkingFile}"])
+    template: str = "wc -l %{inputWorkingDir}/%{inputWorkingFile}"
+    options = parser.parse_args(["--fileFilter", "txt", "--jobFiles", "--exec", template])
     assert plugin_run(options, inputDir, outputDir) == 0
     assert (outputDir / "a" / "one.txt-returncode").read_text() == "0\n"
     assert (outputDir / "a" / "jobs.jsonl").exists()
