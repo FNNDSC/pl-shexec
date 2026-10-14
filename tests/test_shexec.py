@@ -29,10 +29,11 @@ def test_run_everyTxt_withRecords(tmp_path: Path, capsys: pytest.CaptureFixture[
     template: str = "wc -l %{inputWorkingDir}/%{inputWorkingFile}"
     options = parser.parse_args(["--fileFilter", "txt", "--exec", template])
     assert main(options, inputDir, outputDir) == 0
-    assert (outputDir / "a" / "one.txt-stdout").read_text().startswith("2 ")
-    assert (outputDir / "a" / "one.txt-returncode").read_text() == "0\n"
-    assert (outputDir / "b" / "two.txt-returncode").read_text() == "0\n"
-    assert not (outputDir / "a" / "skip.md-cmd").exists()
+    jobA = json.loads((outputDir / "a" / "jobs.jsonl").read_text())
+    assert jobA["stdout"].startswith("2 ") and jobA["returncode"] == 0
+    assert json.loads((outputDir / "b" / "jobs.jsonl").read_text())["returncode"] == 0
+    assert not (outputDir / "a" / "one.txt-cmd").exists()
+    assert "skip.md" not in jobA["argv"][-1]
     span = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
     assert span["name"] == "shexec" and span["status"] is True and span["returncode"] == 0
 
@@ -51,7 +52,7 @@ def test_failingCommand_exits1_andSpanFails(tmp_path: Path, capsys: pytest.Captu
     inputDir, outputDir = tree_make(tmp_path)
     options = parser.parse_args(["--fileFilter", "txt", "--exec", "false %{inputWorkingFile}"])
     assert main(options, inputDir, outputDir) == 1
-    assert (outputDir / "a" / "one.txt-returncode").read_text() == "1\n"
+    assert json.loads((outputDir / "a" / "jobs.jsonl").read_text())["returncode"] == 1
     span = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
     assert span["status"] is False and span["returncode"] == 1
 
@@ -69,7 +70,16 @@ def test_json_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None
     out: str = capsys.readouterr().out
     record = json.loads(out)
     assert record["status"] is True and any(key.endswith("/a") for key in record["tree"])
-    assert not (outputDir / "a" / "one.txt-cmd").exists()
+    assert not (outputDir / "a" / "jobs.jsonl").exists()
+
+
+def test_jobFiles_writesTheFourFilesToo(tmp_path: Path) -> None:
+    inputDir, outputDir = tree_make(tmp_path)
+    template: str = "wc -l %{inputWorkingDir}/%{inputWorkingFile}"
+    options = parser.parse_args(["--fileFilter", "txt", "--jobFiles", "--exec", template])
+    assert plugin_run(options, inputDir, outputDir) == 0
+    assert (outputDir / "a" / "one.txt-returncode").read_text() == "0\n"
+    assert (outputDir / "a" / "jobs.jsonl").exists()
 
 
 def test_options_build_setsDirectories(tmp_path: Path) -> None:
