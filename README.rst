@@ -115,7 +115,7 @@ pl-shexec is a library as well as a plugin, in the same way pfdo_run is a librar
 
 ``PluginSpec`` holds everything a plugin changes: its name and version, which become its command, its span and its ``--version``; its title, category and resource limits for ChRIS; the defaults of its flags, above all ``--exec``, which ChRIS shows as the defaults and the user can override; and its words on the manual page, over the sections every plugin shares. ``plugin_build`` returns the parser with those defaults applied, the manual, and ``main`` already wrapped in pflog's ``timed`` and ``chris_plugin``, ready to be the console script. The engine, the flags, the records and the exit status are not in the spec, because they are the same for every plugin on the stack, and a fix to them reaches every plugin on its next build.
 
-The rest of pl-freesurfer is a ``pyproject.toml`` naming ``shexec`` as a dependency, a ``setup.cfg``, a Dockerfile that starts from the FreeSurfer image and installs the package, tests, and docs. pl-shexec itself is the first plugin built this way; its ``__main__`` is the same call with an empty default command. The pf* stack's ``docs/plugin.adoc`` has the template.
+The rest of pl-freesurfer is a ``pyproject.toml`` naming ``chris_plugin`` and ``shexec`` as its dependencies, the first so that ``chris_plugin_info`` finds the plugin, a ``setup.cfg``, a Dockerfile that starts from the FreeSurfer image and installs the package, tests, and docs. pl-shexec itself is the first plugin built this way; its ``__main__`` is the same call with an empty default command. The pf* stack's ``docs/plugin.adoc`` has the template.
 
 Running it
 ----------
