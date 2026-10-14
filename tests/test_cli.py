@@ -12,7 +12,8 @@ from chris_plugin.parameters import serialize
 from hostlib import JobSpec, job_run
 
 from shexec import __version__
-from shexec.__main__ import main, manual_build, parser, synopsis
+from shexec.__main__ import SPEC, main, manual_build, parser
+from shexec.plugin import synopsis_build
 
 
 def test_manual_andSynopsis(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -27,7 +28,7 @@ def test_manual_andSynopsis(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
 def test_manual_build_namesShexec() -> None:
     manual = manual_build()
     assert manual.command == "shexec" and __version__ in manual.text_render()
-    assert "--inputDir" not in synopsis(shortOnly=True)
+    assert "--inputDir" not in synopsis_build(SPEC, shortOnly=True)
 
 
 def test_version_isShexecs(capsys: pytest.CaptureFixture[str]) -> None:

@@ -1,38 +1,33 @@
 """The ``shexec`` command: a ChRIS DS plugin that runs a command over every file of a tree.
 
-The parser is pfdo_run's, without ``--inputDir`` and ``--outputDir``; ChRIS supplies
-those as positional arguments. ``main`` wears ``@chris_plugin``, which registers the
-plugin and parses the command line, and inside it ``@timed``, which clocks the body
-alone and writes the span on standard error where CUBE keeps the plugin's output.
-``--man`` prints the full manual, ``--synopsis`` its first page.
+This module is shexec's own call of ``plugin_build``: its name, its description for
+ChRIS, no flag defaults, and its words on the manual page. A plugin built on shexec
+has a module of the same shape with its own spec; see ``shexec.plugin`` and the
+README's "Building a plugin on pl-shexec".
 
 Key components:
-    - BANNER_*, DESCRIPTION, EXAMPLES: the manual's own text; the rest is pfdo_run's
-    - synopsis, manual_build: the manual
-    - parser: the plugin's flags, for chris_plugin and for tests
-    - main: the plugin
+    - SPEC: what shexec says about itself
+    - PLUGIN: the built plugin
+    - parser, main: the plugin's flags and the console script's target
 
 Typical usage:
     shexec --fileFilter 'glob:*.jpg' --exec "convert %{inputWorkingDir}/%{inputWorkingFile}
         %{outputWorkingDir}/%{inputWorkingFile|rmext}.png" /incoming /outgoing
 
 Dependencies:
-    - chris_plugin, pfdo_run.__main__, pftree.manual, pflog, shexec.shexec
+    - shexec.plugin, shexec.models
 """
 
-# No ``from __future__ import annotations`` here: chris_plugin reads main's annotations
-# as objects to tell a DS plugin from an FS plugin, and stringified ones fail that check.
+from __future__ import annotations
 
 import argparse
-from pathlib import Path
+from collections.abc import Callable
 
-from chris_plugin import chris_plugin
-from pfdo_run.__main__ import ARGS_SYNOPSIS_DS, CLI_DS, TAG_HELP, parser_build
-from pflog import timed
-from pftree.manual import Manual, manual_print
+from pftree.manual import Manual
 
 from shexec import __version__
-from shexec.shexec import plugin_run
+from shexec.models import Plugin, PluginSpec
+from shexec.plugin import plugin_build
 
 TITLE: str = "Execute shell-type commands across input spaces"
 CATEGORY: str = "Utility"
@@ -128,76 +123,34 @@ EXAMPLES: str = """
 """
 
 
-def synopsis(shortOnly: bool = False) -> str:
-    """Assemble the manual text.
-
-    Args:
-        shortOnly: NAME, SYNOPSIS and a brief example only.
-
-    Returns:
-        The manual text, without the banner.
-    """
-    shortSynopsis: str = (
-        """
-    NAME
-
-        shexec
-
-    SYNOPSIS
-
-        shexec \\"""
-        + CLI_DS
-        + """
-
-    BRIEF EXAMPLE
+BRIEF_EXAMPLE: str = """
 
         shexec --fileFilter 'glob:*.jpg'                                        \\
             --exec "convert %{inputWorkingDir}/%{inputWorkingFile}
                             %{outputWorkingDir}/%{inputWorkingFile|rmext}.png"  \\
             /incoming /outgoing
-    """
-    )
-    if shortOnly:
-        return shortSynopsis
-    return shortSynopsis + DESCRIPTION + "\n    ARGS " + ARGS_SYNOPSIS_DS + TAG_HELP + EXAMPLES
+"""
+
+SPEC: PluginSpec = PluginSpec(
+    name="shexec",
+    version=__version__,
+    title=TITLE,
+    category=CATEGORY,
+    minMemory=MIN_MEMORY,
+    minCpu=MIN_CPU,
+    bannerArt=BANNER_ART,
+    bannerTitle=BANNER_TITLE,
+    bannerText=BANNER_TEXT,
+    briefExample=BRIEF_EXAMPLE,
+    description=DESCRIPTION,
+    examples=EXAMPLES,
+)
+
+PLUGIN: Plugin = plugin_build(SPEC)
+parser: argparse.ArgumentParser = PLUGIN.parser
+main: Callable[..., int] = PLUGIN.main
 
 
 def manual_build() -> Manual:
     """The shexec manual page."""
-    return Manual(
-        command="shexec",
-        art=BANNER_ART,
-        title=BANNER_TITLE,
-        text=BANNER_TEXT,
-        version=__version__,
-        synopsisShort=synopsis(shortOnly=True),
-        synopsisFull=synopsis(shortOnly=False),
-    )
-
-
-parser: argparse.ArgumentParser = parser_build(standalone=False, command="shexec", version=__version__)
-
-
-@chris_plugin(
-    parser=parser,
-    title=TITLE,
-    category=CATEGORY,
-    min_memory_limit=MIN_MEMORY,
-    min_cpu_limit=MIN_CPU,
-)
-@timed("shexec")
-def main(options: argparse.Namespace, inputdir: Path, outputdir: Path) -> int:
-    """The plugin.
-
-    Args:
-        options: the parsed flags.
-        inputdir: the input tree, from ChRIS.
-        outputdir: the output tree, from ChRIS.
-
-    Returns:
-        The exit status; see the manual.
-    """
-    if options.man or options.synopsis:
-        manual_print(manual_build(), shortOnly=not options.man)
-        return 0
-    return plugin_run(options, inputdir, outputdir)
+    return PLUGIN.manual

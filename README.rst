@@ -12,7 +12,7 @@ pl-shexec
                         %{outputWorkingDir}/%{inputWorkingFile|rmext}.png"      \
         /incoming /outgoing
 
-It is also the design for wrapping a large existing program as a plugin. Put the program in the image, set the default command, and the plugin is done: the program's whole command line stays available through the template rather than a hand-picked subset of flags, and the tree walk, the records, the parallelism and the exit status come from the stack. With FreeSurfer in the image, one ``recon-all`` per subject directory is:
+It is also the design for wrapping a large existing program as a plugin. Put the program in the image, set the default command, and the plugin is done: the program's whole command line stays available through the template rather than a hand-picked subset of flags, and the tree walk, the records, the parallelism and the exit status come from the stack. With for example FreeSurfer in the image, one ``recon-all`` per subject directory is:
 
 .. code-block:: bash
 
@@ -21,7 +21,7 @@ It is also the design for wrapping a large existing program as a plugin. Put the
                           -s %{inputWorkingDir|basename} -sd %{outputWorkingDir}" \
         /incoming /outgoing
 
-pl-freesurfer is an example of the pattern: this plugin, the FreeSurfer image, and that template as the default ``--exec``.
+pl-freesurfer is an example of the pattern: a plugin that depends on this one the way this one depends on pfdo_run, contributing the FreeSurfer image, that template as the default ``--exec``, and nothing else. See `Building a plugin on pl-shexec`_.
 
 The engine is `pfdo_run <https://github.com/FNNDSC/pfdo_run>`_; the plugin is pfdo_run with its directories supplied by ChRIS and its own run timed.
 
@@ -81,7 +81,41 @@ A plugin for a program with its own command line, FreeSurfer, ANTs, FSL, DCMTK, 
 - the default ``--exec`` is the program's usual invocation as a template, so the common case needs no command at all and the unusual case overrides it;
 - the default ``--analyzeFileIndex`` chooses the unit, ``f`` for one run per directory, as for a subject or a DICOM series, ``a`` for one run per file.
 
-The user of such a plugin gets the program's entire interface, because anything the program accepts can be written into the template, and gets the same records, the same filters, the same threads and the same truthful exit status as every other plugin on the stack. The plugin's author maintains three small modules and a Dockerfile. This is the reason pl-shexec exists in the form it has, and the pf* stack's ``docs/plugin.adoc`` is the guide to cutting a new one from it.
+The user of such a plugin gets the program's entire interface, because anything the program accepts can be written into the template, and gets the same records, the same filters, the same threads and the same truthful exit status as every other plugin on the stack. This is the reason pl-shexec exists in the form it has.
+
+Building a plugin on pl-shexec
+------------------------------
+
+pl-shexec is a library as well as a plugin, in the same way pfdo_run is a library to pl-shexec. A downstream plugin does not copy it; it depends on the ``shexec`` package and calls ``plugin_build`` with a spec of what differs:
+
+.. code-block:: python
+
+    # freesurfer/__main__.py, the whole of pl-freesurfer's code
+    from shexec import PluginSpec, plugin_build
+
+    from freesurfer import __version__
+
+    RECON_ALL: str = (
+        "recon-all -all -i %{inputWorkingDir}/%{inputWorkingFile} "
+        "-s %{inputWorkingDir|basename} -sd %{outputWorkingDir}"
+    )
+
+    PLUGIN = plugin_build(PluginSpec(
+        name="freesurfer",
+        version=__version__,
+        title="FreeSurfer recon-all over every subject",
+        minMemory="8Gi",
+        minCpu="4000m",
+        defaults={"exec": RECON_ALL, "analyzeFileIndex": "f", "fileFilter": "glob:*.nii.gz"},
+        bannerTitle="FreeSurfer recon-all over an input tree",
+        description=DESCRIPTION,
+        examples=EXAMPLES,
+    ))
+    main = PLUGIN.main
+
+``PluginSpec`` holds everything a plugin changes: its name and version, which become its command, its span and its ``--version``; its title, category and resource limits for ChRIS; the defaults of its flags, above all ``--exec``, which ChRIS shows as the defaults and the user can override; and its words on the manual page, over the sections every plugin shares. ``plugin_build`` returns the parser with those defaults applied, the manual, and ``main`` already wrapped in pflog's ``timed`` and ``chris_plugin``, ready to be the console script. The engine, the flags, the records and the exit status are not in the spec, because they are the same for every plugin on the stack, and a fix to them reaches every plugin on its next build.
+
+The rest of pl-freesurfer is a ``pyproject.toml`` naming ``shexec`` as a dependency, a ``setup.cfg``, a Dockerfile that starts from the FreeSurfer image and installs the package, tests, and docs. pl-shexec itself is the first plugin built this way; its ``__main__`` is the same call with an empty default command. The pf* stack's ``docs/plugin.adoc`` has the template.
 
 Running it
 ----------

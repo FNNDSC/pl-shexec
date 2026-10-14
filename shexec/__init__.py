@@ -1,6 +1,8 @@
 """shexec: a ChRIS DS plugin that runs a shell-type command over every file of a tree.
 
 Key components:
+    - plugin_build, PluginSpec, Plugin: make a ChRIS plugin from a spec; what a
+      downstream plugin calls
     - ShExec: pfdo_run's engine, built from the plugin's arguments
     - ShExecOptions: the options
     - plugin_run: the body of the plugin's main
@@ -12,20 +14,23 @@ Dependencies:
 
 from __future__ import annotations
 
+__version__: str = "2.2.0"
+
 from shexec.models import (
     DirNode,
     FileJob,
     HostFacts,
     JobResult,
     JobSpec,
+    Plugin,
+    PluginSpec,
     RunResult,
     ShExecOptions,
     Span,
     StageResult,
 )
+from shexec.plugin import plugin_build
 from shexec.shexec import ShExec, options_build, plugin_run
-
-__version__: str = "2.1.0"
 
 __all__: list[str] = [
     "DirNode",
@@ -33,6 +38,8 @@ __all__: list[str] = [
     "HostFacts",
     "JobResult",
     "JobSpec",
+    "Plugin",
+    "PluginSpec",
     "RunResult",
     "ShExec",
     "ShExecOptions",
@@ -40,5 +47,6 @@ __all__: list[str] = [
     "StageResult",
     "__version__",
     "options_build",
+    "plugin_build",
     "plugin_run",
 ]
