@@ -1,38 +1,20 @@
-# Python version can be changed, e.g.
-# FROM python:3.8
-# FROM docker.io/fnndsc/conda:python3.10.2-cuda11.6.0
-FROM docker.io/python:3.11.0-slim-bullseye
+FROM docker.io/python:3.12-slim
 
 LABEL org.opencontainers.image.authors="FNNDSC <dev@babyMRI.org>" \
       org.opencontainers.image.title="Execute shell-type commands across input spaces" \
-      org.opencontainers.image.description="A ChRIS plugin that uses pfdo_run to execute shell-type commands across input spaces "
+      org.opencontainers.image.description="A ChRIS DS plugin that runs a shell-type command over every file of its input tree, on pfdo_run"
+
+ENV LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bc coreutils dcmtk imagemagick locales perl psmisc tar tzdata unzip zip \
+    && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
+    && locale-gen \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/src/pl-shexec
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
 COPY . .
-ARG extras_require=none
-# RUN pip install ".[${extras_require}]"
-
-RUN   pip install --upgrade pip                                   && \
-      pip install ".[${extras_require}]"                          && \
-      pip install -r requirements.txt                             && \
-      pip install .                                               && \
-      apt update  && apt -y upgrade                               && \
-      apt install -y zip unzip inetutils-tools                    && \
-      apt install -y bc binutils  perl psmisc telnet              && \
-      apt install -y tar uuid-dev                                 && \
-      apt install -y neovim                                       && \
-      apt install -y imagemagick                                  && \
-      apt install -y tzdata                                       && \
-      apt-get install -y locales                                  && \
-      apt-get install dcmtk -y                                    && \
-      export LANGUAGE=en_US.UTF-8                                 && \
-      export LANG=en_US.UTF-8                                     && \
-      export LC_ALL=en_US.UTF-8                                   && \
-      locale-gen en_US.UTF-8                                      && \
-      dpkg-reconfigure locales
+RUN pip install --no-cache-dir .
 
 CMD ["shexec", "--man", "/tmp", "/tmp"]

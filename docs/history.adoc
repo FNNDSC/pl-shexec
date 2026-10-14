@@ -1,0 +1,20 @@
+= pl-shexec: history
+:toc:
+
+== Abstract
+
+pl-shexec began in 2022 as a thin ChRIS wrapper around pfdo_run 3, carrying pfdo_run's own 1.x tag grammar, a pftel telemetry flag, and the dependencies of its day. Version 2.0, in October 2026, is the same idea on the rebuilt stack: pfdo_run 4 on hostlib and pftag 3, pflog 2 for the run's span, chris_plugin's decorator, a package of three modules, a workflow that tests before it builds, and an exit status that means what it says.
+
+== 2022 to 2023: a wrapper on pfdo_run 3
+
+The first pl-shexec was one file, `shexec.py`, from the python-chrisapp-template: a `@chris_plugin` main that copied the parsed namespace into pfdo_run's dictionary-of-options constructor, renamed `inputdir` to `inputDir` with a comment about camel-case annoyances, and called `run`. The parser was pfdo_run's `parserDS` with one flag added, `--pftelDB`, and `main` wore pflog's `tel_logTime` decorator, which posted the seconds `main` took to a pftel server when the flag was set. The manual was pfdo_run's text concatenated with the plugin's own. The command grammar was pfdo_run 3's: `%inputWorkingDir`, `%_rmext_inputWorkingFile`, and the whole of pfdo_run 3's behaviour came with it, the split-on-whitespace command, the stderr read after exit, the dropped last line.
+
+The packaging recorded what the plugin had accumulated. `setup.py` declared one dependency, chris_plugin; `requirements.txt` pinned fourteen, among them pudb, Faker, urwid, Pygments and pftel-client, and the Dockerfile installed them twice and the package twice. The test was the template's, counting words in a text file, and the workflow's test job was set to `if: False`. The image, on `python:3.11.0-slim-bullseye`, installed neovim and telnet beside the tools the template could use. The last commit before 2.0, in 2023, added the DCMTK tools. `main` returned 0 whatever pfdo_run reported, so a plugin instance whose every job failed was marked successful in ChRIS.
+
+== 2026: the same plugin on the rebuilt stack
+
+The pf* revitalization of October 2026 rebuilt pftree, pfdo, pftag and pfdo_run in order, created hostlib for running a process, and rebuilt pflog for timing a call, each repository on its own branch and pull request and each published before the next began; pl-shexec was the first plugin on the result, and the reason the chain had been walked, since pl-freesurfer was to be built on its design.
+
+Three decisions were taken for the plugin itself. The telemetry flag went, with the discussion recorded in pflog's history: the run's timing stays, as a span on standard error where CUBE and any collector already look, and the transport to a server is no longer the plugin's business. The parser became pfdo_run's with no additions, which required pfdo_run 4.1 to let `parser_build` take the command's name and version so the plugin could answer `--help` and `--version` as itself; the plugin therefore has no parameters to maintain and inherits every improvement to pfdo_run's, including the `--exec` help that names the tags, added in pfdo_run 4.0.1 after the observation that nothing short of the manual had told a user the flag carried a grammar. The exit status became truthful, 0, 1 or 2 from the run's record, so ChRIS marks a failed run failed.
+
+The shape followed the stack's: a `shexec` package with `__main__`, `shexec` and `models`, the last re-exporting every record of the layers below; `pyproject.toml` with three dependencies in place of `setup.py` and fourteen pins; twelve tests run in-process and one through `chris_plugin_info`; a workflow whose test job gates the image build; a `python:3.12-slim` image with one install; a README for someone who has never seen a pf* tool; and these three documents. One accommodation was made to chris_plugin 0.4.0: the plugin module omits the `from __future__ import annotations` the stack uses everywhere else, because the decorator inspects `main`'s annotations as objects to tell a DS plugin from an FS plugin.
