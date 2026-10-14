@@ -13,7 +13,7 @@ authors = [{ email = "dev@babyMRI.org" }]
 # fields, which the [project] table does not emit; setup.cfg supplies them, and the
 # author name lives there alone so Author-email stays a bare address.
 requires-python = ">=3.11"
-dependencies = ["chris_plugin>=0.4.0", "pfdo_run>=4.1.0", "pflog>=2.0.0"]
+dependencies = ["chris_plugin>=0.4.0", "pfdo>=6.2.0", "pfdo_run>=4.1.0", "pflog>=2.0.0"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
