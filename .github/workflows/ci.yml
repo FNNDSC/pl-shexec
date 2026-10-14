@@ -1,50 +1,39 @@
-# Continuous integration testing for ChRIS Plugin.
-# https://github.com/FNNDSC/python-chrisapp-template/wiki/Continuous-Integration
-#
-# - on push and PR: run pytest
-# - on push to main: build and push container images as ":latest"
-# - on push to semver tag: build and push container image with tag and
-#                          upload plugin description to https://cube.chrisproject.org/api/v1/
+# Lint and test on every push and pull request; build the container image on every
+# push to main and on a version tag, push it to docker.io and ghcr.io, and on a tag
+# upload the plugin's description to cube.chrisproject.org.
 
-name: build
+name: ci
 
 on:
   push:
-    branches: [ main ]
-    tags:
-      - "v?[0-9]+.[0-9]+.[0-9]+*"
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
-    name: Unit tests
-    if: False
-    runs-on: ubuntu-22.04
+    name: Lint and test (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build
-        uses: docker/build-push-action@v5
+      - uses: actions/setup-python@v5
         with:
-          build-args: extras_require=dev
-          context: .
-          load: true
-          push: false
-          tags: "localhost/local/app:dev"
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Run pytest
-        run: |
-          docker run -v "$GITHUB_WORKSPACE:/app:ro" -w /app localhost/local/app:dev \
-            pytest -o cache_dir=/tmp/pytest
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest -q
 
   build:
-    name: Build
-    if: github.event_name == 'push' || github.event_name == 'release'
-    # needs: [ test ]  # uncomment to require passing tests
-    runs-on: ubuntu-22.04
-
+    name: Build and publish the image
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
     steps:
       - name: Decide image tags
         id: info
@@ -85,64 +74,40 @@ jobs:
                   out.write(f'{k}={v}\n')
 
       - uses: actions/checkout@v4
-        # QEMU is used for non-x86_64 builds
       - uses: docker/setup-qemu-action@v3
-        # buildx adds additional features to docker build
       - uses: docker/setup-buildx-action@v3
         with:
           driver-opts: network=host
 
-        # Here, we want to do the docker build twice:
-        # The first build pushes to our local registry for testing.
-        # The second build pushes to Docker Hub and ghcr.io
       - name: Build (local only)
-        uses: docker/build-push-action@v3
-        id: docker_build
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           tags: ${{ steps.info.outputs.local_tag }}
           load: true
           cache-from: type=gha
-      # If you have a directory called examples/incoming/ and examples/outgoing/, then
-      # run your ChRIS plugin with no parameters, and assert that it creates all the files
-      # which are expected. File contents are not compared.
-      - name: Run examples
-        id: run_examples
+
+      - name: Check the tag matches the package version
+        if: github.ref_type == 'tag'
         run: |
-          if ! [ -d 'examples/incoming/' ] || ! [ -d 'examples/outgoing/' ]; then
-            echo "No examples."
-            exit 0
-          fi
-        
+          expected="v$(python3 -c 'import re, pathlib; print(re.search(r"__version__: str = \"([^\"]+)\"", pathlib.Path("shexec/__init__.py").read_text()).group(1))')"
+          test "${GITHUB_REF_NAME}" = "${expected}" || { echo "tag ${GITHUB_REF_NAME} != ${expected}"; exit 1; }
+
+      - name: Run the image
+        run: |
           dock_image=${{ steps.info.outputs.local_tag }}
-          output_dir=$(mktemp -d)
-          cmd=$(docker image inspect -f '{{ (index .Config.Cmd 0) }}' $dock_image)
-          docker run --rm -u "$(id -u):$(id -g)" \
-            -v "$PWD/examples/incoming:/incoming:ro" \
-            -v "$output_dir:/outgoing:rw" \
-            $dock_image $cmd /incoming /outgoing
-          
-          for expected_file in $(find examples/outgoing -type f); do
-            fname="${expected_file##*/}"
-            out_path="$output_dir/$fname"
-            printf "Checking output %s exists..." "$out_path"
-            if [ -f "$out_path" ]; then
-              echo "ok"
-            else
-              echo "not found"
-              exit 1
-            fi
-          done
+          docker run --rm $dock_image shexec --version
+          docker run --rm $dock_image chris_plugin_info --dock-image $dock_image shexec > /dev/null
 
       - name: Login to DockerHub
-        if: (github.event_name == 'push' || github.event_name == 'release') && contains(steps.info.outputs.tags_csv, 'docker.io')
+        if: contains(steps.info.outputs.tags_csv, 'docker.io')
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: Login to GitHub Container Registry
-        if: (github.event_name == 'push' || github.event_name == 'release') && contains(steps.info.outputs.tags_csv, 'ghcr.io')
+        if: contains(steps.info.outputs.tags_csv, 'ghcr.io')
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -150,13 +115,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         uses: docker/build-push-action@v5
-        if: (github.event_name == 'push' || github.event_name == 'release')
         with:
           context: .
           file: ./Dockerfile
           tags: ${{ steps.info.outputs.tags_csv }}
-          # if non-x86_84 architectures are supported, add them here
-          platforms: linux/amd64  #,linux/arm64,linux/ppc64le
+          platforms: linux/amd64
           push: ${{ steps.info.outputs.push }}
           cache-to: type=gha,mode=max
 
@@ -174,9 +137,9 @@ jobs:
       - name: Update DockerHub description
         if: steps.upload.outcome == 'success'
         uses: peter-evans/dockerhub-description@v3
-        continue-on-error: true  # it is not crucial that this works
+        continue-on-error: true
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           short-description: ${{ steps.upload.outputs.title }}
-          readme-filepath: ./README.md
+          readme-filepath: ./README.rst

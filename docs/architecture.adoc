@@ -1,0 +1,40 @@
+= pl-shexec: architecture
+:toc:
+
+== Abstract
+
+pl-shexec is three modules in one package: `__main__` holds the parser, the manual and the decorated `main`; `shexec` holds the body, `plugin_run`, with the engine class and the option builder; `models` holds the plugin's options and re-exports every record of the layers below. The plugin depends on chris_plugin, pfdo_run and pflog, and reaches below pfdo_run only for pftree's manual renderer and logging configuration. The load-bearing decisions are three: the parser is pfdo_run's own, so the plugin has no parameters of its own to maintain; `main` is decorated twice, `@chris_plugin` outside and `@timed` inside, so the registry sees the plugin and the span clocks the body alone; and the body returns an exit status rather than raising, so the status reaches both the span and the shell.
+
+== Layout and the direction of dependency
+
+`shexec.models` defines `ShExecOptions`, a dataclass subclassing `PfdoRunOptions` with no fields of its own, and re-exports pfdo_run's records, which are pfdo's, pftree's and hostlib's by the same rule, and pflog's `Span`. A plugin built on shexec imports from `shexec.models` and nothing below. `shexec.shexec` depends on `models`, on `pfdo_run.pfdo_run` for the engine, and on `pftree.__main__` for `logging_configure`, the one function the stack has not yet lifted into pfdo_run. `shexec.__main__` depends on both, on `pfdo_run.__main__` for the parser and the manual's shared text, on `pftree.manual` for the renderer, on chris_plugin and on pflog. Nothing depends on `__main__`.
+
+== The parser
+
+`parser_build(standalone=False, command="shexec", version=__version__)` from pfdo_run is the whole parser. Without `standalone` it omits `--inputDir` and `--outputDir`, which ChRIS supplies as positional arguments that chris_plugin appends; `command` and `version` make `--help` and `--version` answer as shexec. The resulting flags are pftree's filters, threads and output options, pfdo's `--analyzeFileIndex` and `--test`, and pfdo_run's `--exec` and `--noJobLogging`, twenty-one in all, every one a `store` or `store_true` action with a string, integer or boolean value, which is what chris_plugin's serializer accepts; `--version` is a `VersionAction`, which the serializer skips. A test serializes the parser and another runs `chris_plugin_info` against the installed package and checks the description's type, entry point, version and parameters. The parser is built at import time as a module attribute because chris_plugin wants it at decoration time and the tests want the same object to parse arguments with.
+
+== The decorated main
+
+`main(options: argparse.Namespace, inputdir: Path, outputdir: Path) -> int` wears `@chris_plugin(parser=..., title=..., category=..., min_memory_limit=..., min_cpu_limit=...)` outside and `@timed("shexec")` inside. The order matters twice. chris_plugin registers the decorated function in a module-level singleton that `chris_plugin_info` reads, deep-copies the parser, appends `--saveinputmeta`, `--saveoutputmeta` and the two positional directories, and at call time with no arguments parses the command line, makes the output directory, checks the input directory and calls the function; with three arguments it calls through directly, which is how the tests run the plugin in-process. `timed` must be inside so the span opens after chris_plugin's parsing and directory checks and closes before its return, measuring the plugin's body alone; and chris_plugin inspects the function's signature to tell a DS plugin from an FS plugin, which `functools.wraps` in `timed` preserves through `__wrapped__`.
+
+That inspection is why `shexec/__main__.py` is the one module in the stack without `from __future__ import annotations`: chris_plugin compares the annotations as objects, `Namespace` and `Path`, and the stringified annotations that the future import produces fail the comparison and exit the program at import. A comment at the top of the module says so.
+
+`main` returns an integer. The console script, `shexec = "shexec.__main__:main"`, passes it to `sys.exit`, so it is the process's exit status; `timed` reads the same integer as the span's `returncode` and sets `status` from it, so a plugin that exits 2 for a missing `--exec` leaves a failed span saying `returncode: 2`. `--man` and `--synopsis` are handled in `main` before the body, printing through pftree's renderer and returning 0, so `shexec --man /tmp /tmp` works from the image, where the positional directories are required.
+
+== The body
+
+`plugin_run(options, inputdir, outputdir)` is the plugin without the plugin machinery, callable from a test or another program. It refuses an empty `--exec` with a message on standard error and 2, since chris_plugin's parser cannot mark a flag required without ChRIS treating it as such in its form. It builds `ShExecOptions` through `options_build`, which copies the namespace, sets `inputDir` and `outputDir` from the positionals, and hands the mapping to `fromDict`, which coerces and ignores what it does not know; a value that cannot be coerced, such as an `--analyzeFileIndex` that is neither a letter nor a number, is a `ValueError` reported as 2. It configures logging from `verbosity`, runs the engine, prints the record as JSON and the elapsed time if asked, prints the run's error if it has one, and returns 0 or 1 from the record's status.
+
+`ShExec` is `PfdoRun` with one classmethod, `fromPlugin(options, inputdir, outputdir)`, and no behaviour of its own. It exists so that the engine a plugin on this stack runs has the plugin's name, and so that a plugin needing to override a stage, as pl-freesurfer may, has the class to subclass.
+
+== The manual
+
+The manual is composed from pfdo_run's parts and the plugin's own. `CLI_DS` is the synopsis with positional directories, `ARGS_SYNOPSIS_DS` the argument descriptions, `TAG_HELP` the tag grammar; pl-shexec writes its own banner, DESCRIPTION and EXAMPLES, the examples showing the image invocation and the three operations the plugin is most used for. `Manual` and `manual_print` are pftree's, so `--man` is the same colourised page every pf* command prints. The one line the plugin's `--exec` help carries, naming the three tags and pointing at `--man TAGS`, is pfdo_run's and arrives through the parser.
+
+== The image and the workflow
+
+The image is `python:3.12-slim` with the tools the template can name, `bc`, `coreutils`, `dcmtk`, `imagemagick`, `perl`, `psmisc`, `tar`, `unzip`, `zip`, a UTF-8 locale, and one `pip install .`; its command is `shexec --man /tmp /tmp`. The workflow lints and tests on Python 3.11 to 3.14 on the host on every push and pull request; on a push to `main` or a version tag it builds the image, runs `shexec --version` and `chris_plugin_info` inside it, pushes it to Docker Hub and ghcr.io, and on a tag checks that the tag matches `__version__` and uploads the plugin's description to cube.chrisproject.org. The test job gates the build.
+
+== Verification
+
+Twelve tests. The plugin tests run `main` and `plugin_run` in-process over a two-directory tree: every selected file gets its four record files and the unselected one does not; tags resolve into the output tree; a failing command exits 1 with the failure in the record and in the span; a missing `--exec` exits 2; `--json` prints the record and `--noJobLogging` leaves no files; `options_build` sets the directories; a bad flag value exits 2. The command tests check `--man` and `--synopsis` through the renderer, the manual naming shexec, `--version` printing shexec's version, the parser having no positionals and serializing, and `chris_plugin_info` describing the installed package, run through hostlib's `job_run`. Ruff is clean with the stack's rule set.

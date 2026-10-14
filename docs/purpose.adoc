@@ -1,0 +1,28 @@
+= pl-shexec: purpose
+:toc:
+
+== Abstract
+
+pl-shexec is a ChRIS DS plugin that runs one command for every selected file of every directory in its input tree, the command written as a template whose tags name the file and directories in hand, and writes the results and a record of each run into an output tree mirroring the input. It exists because most of what a pipeline needs between its real analyses is a shell one-liner, and a platform in which every operation is a container needs one container that can be told what the one-liner is.
+
+== The problem
+
+A ChRIS pipeline is a graph of plugins, each a container that reads one directory and writes another. The plugins that justify that packaging do real work: a cortical reconstruction, a segmentation, a registration. Between them sit operations that do not: convert these images to another format, zip this directory, copy one file out of each subject's folder, rename by a pattern, count lines, run a DICOM tool over each series. Each is a line of shell. Wrapping each in its own plugin, with its own image, description, release and review, costs more than the operation is worth, and the pipeline either grows a dozen trivial plugins or does the operation outside the platform, where its provenance is lost.
+
+The operation is also never quite one line. It has to be applied to every file in a nested tree, with the output landing at the corresponding place in another tree, with each file's output name derived from its input name, with a record of what ran and whether it worked, in parallel if there are thousands of files, and without a shell interpreting a file name that contains a space. That is the part that gets written badly every time it is written.
+
+== What pl-shexec is
+
+pl-shexec is that part written once, as a ChRIS plugin whose one essential parameter is the command. The command is a pftag template: `%{inputWorkingDir}`, `%{inputWorkingFile}` and `%{outputWorkingDir}` name the file and directories in hand, functions derive names, `%{inputWorkingFile|rmext}.png`, and every flag of the plugin is a tag by name. The template is split like a command line once, each argument has its tags resolved per file, and the result runs directly, without a shell. The tree walk, the filters, the parallelism, the output mirror and the per-job record are pfdo_run's, and pl-shexec adds nothing to them; it supplies pfdo_run's two directories from the positional arguments ChRIS passes and times its own run.
+
+Each job's record is four files beside its results, `<file>-cmd`, `-stdout`, `-stderr` and `-returncode`, with the stream files rendered as a terminal would have shown them. The run's own record is one line of JSON on standard error, written by pflog: when it began, when it ended, the seconds, and whether it succeeded. CUBE keeps standard error with the plugin instance, and a log collector on the platform indexes the line by its fields, so the question of which step of a pipeline took the time is answered from the platform's own logs without a second telemetry path.
+
+The exit status is truthful. A template that does not resolve, a program that cannot be found, or a non-zero exit fails that job and its directory, the run continues, and the plugin exits 0 only when at least one directory's jobs all succeeded, 1 when every directory failed, 2 when the command is missing or a flag's value is unusable. A plugin instance in ChRIS is therefore marked failed when its work failed, which the first version did not do.
+
+== What pl-shexec is not
+
+It is not a shell. Pipes, redirection, globbing and variable expansion in the template are not interpreted; a job that needs them is a script in the image, named in the template. It is not a general compute plugin: the commands available are those the image carries, the coreutils, zip and unzip, bc, perl, tar, ImageMagick and DCMTK, and a plugin that needs a specific program, FreeSurfer, ANTs, a Python package, is its own plugin, built the same way on the same stack, as pl-freesurfer is. It is not a place for logic: a condition on which files to process is a filter or an index, not a template.
+
+== Who uses it
+
+A pipeline author who needs a conversion, an archive or a copy between two analyses, and would otherwise write a plugin for it. The LLD workflows use it for the file handling between their stages. A developer building a plugin on pfdo_run reads it as the smallest complete example: one module for the parser and the decorated main, one for the body, one for the models.
