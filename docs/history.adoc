@@ -24,3 +24,6 @@ Version 2.0.1 followed the first upload to cube.chrisproject.org, which CUBE ref
 Version 2.0.2 rebuilt the image on pfdo 6.2.0, published two hours after the 2.0.1 image was built, and named pfdo in the plugin's own dependencies so that the image states the stack it carries rather than inheriting it through pfdo_run.
 
 Version 2.0.3 told the other half of the story. The README had presented the plugin as the home for jobs too small to deserve a plugin of their own, which is why it sits in a pipeline, and had left out that it is the design for wrapping a command-line program as a plugin, which is why the stack was rebuilt; the README and the purpose now say both, with pl-freesurfer named as the first plugin cut from the shape.
+
+Version 2.1.0 followed pfdo_run 4.2: the record of each job became one line of JSON in its directory's `jobs.jsonl`, the four files of 1.x moved behind `--jobFiles`, and the README gave the FreeSurfer `recon-all` invocation as the worked example of wrapping a program, with pl-freesurfer named as that example made into its own plugin.
+

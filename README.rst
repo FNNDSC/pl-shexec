@@ -5,14 +5,23 @@ pl-shexec
 
 ``pl-shexec`` is a `ChRIS <https://chrisproject.org/>`_ DS plugin that does two things. In a pipeline it is the plugin for the jobs too small to deserve one of their own: convert every image, zip every directory, rename, copy one file out of each subject, count lines. It takes a command template, runs it once per selected file of every directory in its input tree, and writes the results, and a record of each run, into an output tree that mirrors the input.
 
-It is also the design for wrapping a large existing program as a plugin. Put the program in the image, set the default command, and the plugin is done: the program's whole command line stays available through the template rather than a hand-picked subset of flags, and the tree walk, the records, the parallelism and the exit status come from the stack. pl-freesurfer is this plugin with FreeSurfer in the image and ``recon-all`` as the default command.
-
 .. code-block:: bash
 
     shexec --fileFilter 'glob:*.jpg'                                            \
         --exec "convert %{inputWorkingDir}/%{inputWorkingFile}
                         %{outputWorkingDir}/%{inputWorkingFile|rmext}.png"      \
         /incoming /outgoing
+
+It is also the design for wrapping a large existing program as a plugin. Put the program in the image, set the default command, and the plugin is done: the program's whole command line stays available through the template rather than a hand-picked subset of flags, and the tree walk, the records, the parallelism and the exit status come from the stack. With FreeSurfer in the image, one ``recon-all`` per subject directory is:
+
+.. code-block:: bash
+
+    shexec --analyzeFileIndex f --fileFilter 'glob:*.nii.gz'                     \
+        --exec "recon-all -all -i %{inputWorkingDir}/%{inputWorkingFile}
+                          -s %{inputWorkingDir|basename} -sd %{outputWorkingDir}" \
+        /incoming /outgoing
+
+pl-freesurfer is an example of the pattern: this plugin, the FreeSurfer image, and that template as the default ``--exec``.
 
 The engine is `pfdo_run <https://github.com/FNNDSC/pfdo_run>`_; the plugin is pfdo_run with its directories supplied by ChRIS and its own run timed.
 
@@ -32,17 +41,22 @@ Functions derive one name from another: ``%{inputWorkingFile|rmext}.png`` turns 
 What each run leaves behind
 ---------------------------
 
-Beside each file's results in the output tree, four small files record what ran:
+Each directory of the output tree gets, beside its results, one file, ``jobs.jsonl``, with one line per job that ran there:
 
 .. code-block:: text
 
     scan.png
-    scan.jpg-cmd            the command, as executed
-    scan.jpg-stdout         everything it printed
-    scan.jpg-stderr         everything it complained
-    scan.jpg-returncode     its exit status
+    jobs.jsonl
 
-The stream files are written while the command runs and, when it ends, rendered as a terminal would have shown them, so a progress bar redrawn a hundred times is one line. ``--noJobLogging`` turns the records off. ``--json`` prints the whole run's record on standard output.
+The line is the whole record of the job as JSON: the command as executed, everything it printed and everything it complained, its exit status, the host it ran on, and when it started and ended. ``pflog read out/**/jobs.jsonl`` prints a day's jobs as a table, ``--failed`` keeps the ones that went wrong, and a log collector indexes the lines by field.
+
+.. code-block:: text
+
+    STARTED                     DURATION  STATUS  NAME
+    2026-10-14T16:02:07-04:00      4.213  ok      convert /incoming/a/scan.jpg /outgoing/a/scan.png
+    2026-10-14T16:02:12-04:00      0.004  failed  convert /incoming/b/bad.jpg /outgoing/b/bad.png
+
+``--jobFiles`` also writes each job as four files beside its result, ``scan.jpg-cmd``, ``-stdout``, ``-stderr`` and ``-returncode``, the stream files rendered as a terminal would have shown them, for the reader who opens them in an editor. ``--noJobLogging`` keeps no record at all. ``--json`` prints the whole run's record on standard output.
 
 The plugin's own run is timed by `pflog <https://github.com/FNNDSC/pflog>`_: one line of JSON on standard error, when it began, when it ended, the seconds, and whether it succeeded. CUBE keeps that line with the rest of the plugin's output, and any log collector indexes it.
 
@@ -96,7 +110,7 @@ Development
     uv venv --python /usr/bin/python3.14 .venv
     uv pip install --python .venv/bin/python -e ".[dev]"
     .venv/bin/ruff check . && .venv/bin/pytest -q
-    PATH=$PWD/.venv/bin:$PATH chris_plugin_info --dock-image docker.io/fnndsc/pl-shexec:2.0.3 shexec
+    PATH=$PWD/.venv/bin:$PATH chris_plugin_info --dock-image docker.io/fnndsc/pl-shexec:2.1.0 shexec
 
 The CI workflow lints and tests on Python 3.11 to 3.14, builds the image on every push to ``main``, pushes it to Docker Hub and ghcr.io, and on a ``v*`` tag uploads the plugin's description to cube.chrisproject.org. The tag must match ``__version__`` in ``shexec/__init__.py``.
 

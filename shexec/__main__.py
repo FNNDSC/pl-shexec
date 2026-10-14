@@ -72,9 +72,11 @@ DESCRIPTION: str = """
         walked, files are selected in each directory by the filters and
         --analyzeFileIndex, and the --exec template is run once per selected
         file with its tags resolved against that directory and file, without
-        a shell. Each job's command, output and exit status are written beside
-        its results in the output tree unless --noJobLogging is given, and at
-        --verbosity 2 a job's output is also streamed to the console as it runs.
+        a shell. Each job's record, the command, its output, its exit status,
+        the host and the timing, is one line of JSON in jobs.jsonl in its
+        output directory unless --noJobLogging is given; --jobFiles adds the
+        four files beside the result; at --verbosity 2 a job's output is also
+        streamed to the console as it runs.
 
         The plugin's own run is timed: one line of JSON on standard error, when
         it began, when it ended, the seconds, and whether it succeeded. CUBE
@@ -99,9 +101,9 @@ EXAMPLES: str = """
                             %{outputWorkingDir}/%{inputWorkingFile|rmext}.png"  \\
             --threads 4 /incoming /outgoing
 
-    Each conversion's command, stdout, stderr and return code are written
-    beside the png as <file>-cmd, <file>-stdout, <file>-stderr and
-    <file>-returncode.
+    Each conversion's command, stdout, stderr, return code and timing are one
+    line in the directory's jobs.jsonl; ``pflog read /outgoing/**/jobs.jsonl``
+    lists them.
 
     Copy one file out of each directory whose path names a subject:
 

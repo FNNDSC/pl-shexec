@@ -48,7 +48,7 @@ def test_chris_plugin_info_describesThePlugin() -> None:
         argv=[
             str(binDir / "chris_plugin_info"),
             "--dock-image",
-            "docker.io/fnndsc/pl-shexec:2.0.3",
+            "docker.io/fnndsc/pl-shexec:2.1.0",
             "shexec",
         ],
         env={"PATH": f"{binDir}{os.pathsep}{os.environ.get('PATH', '')}"},
