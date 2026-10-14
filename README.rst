@@ -1,9 +1,11 @@
 pl-shexec
 =========
 
-**Run a shell-type command over every file of a tree, as a ChRIS plugin.**
+**Run a command over every file of a tree, as a ChRIS plugin; and the pattern for turning any command-line program into one.**
 
-``pl-shexec`` is a `ChRIS <https://chrisproject.org/>`_ DS plugin for the jobs that are too small to deserve a plugin of their own: convert every image, zip every directory, rename, copy one file out of each subject, count lines. It takes a command template, runs it once per selected file of every directory in its input tree, and writes the results, and a record of each run, into an output tree that mirrors the input.
+``pl-shexec`` is a `ChRIS <https://chrisproject.org/>`_ DS plugin that does two things. In a pipeline it is the plugin for the jobs too small to deserve one of their own: convert every image, zip every directory, rename, copy one file out of each subject, count lines. It takes a command template, runs it once per selected file of every directory in its input tree, and writes the results, and a record of each run, into an output tree that mirrors the input.
+
+It is also the design for wrapping a large existing program as a plugin. Put the program in the image, set the default command, and the plugin is done: the program's whole command line stays available through the template rather than a hand-picked subset of flags, and the tree walk, the records, the parallelism and the exit status come from the stack. pl-freesurfer is this plugin with FreeSurfer in the image and ``recon-all`` as the default command.
 
 .. code-block:: bash
 
@@ -56,6 +58,17 @@ Exit status
 
 0 when at least one directory's jobs all succeeded; 1 when every directory failed or the run could not start; 2 when ``--exec`` is missing or a flag's value is unusable. A failed template, a command that cannot be found, or a non-zero exit fails its directory and the run continues; the record says why.
 
+Wrapping a program
+------------------
+
+A plugin for a program with its own command line, FreeSurfer, ANTs, FSL, DCMTK, is pl-shexec with three changes and no new code:
+
+- the image carries the program, with whatever licence or data it needs;
+- the default ``--exec`` is the program's usual invocation as a template, so the common case needs no command at all and the unusual case overrides it;
+- the default ``--analyzeFileIndex`` chooses the unit, ``f`` for one run per directory, as for a subject or a DICOM series, ``a`` for one run per file.
+
+The user of such a plugin gets the program's entire interface, because anything the program accepts can be written into the template, and gets the same records, the same filters, the same threads and the same truthful exit status as every other plugin on the stack. The plugin's author maintains three small modules and a Dockerfile. This is the reason pl-shexec exists in the form it has, and the pf* stack's ``docs/plugin.adoc`` is the guide to cutting a new one from it.
+
 Running it
 ----------
 
@@ -83,7 +96,7 @@ Development
     uv venv --python /usr/bin/python3.14 .venv
     uv pip install --python .venv/bin/python -e ".[dev]"
     .venv/bin/ruff check . && .venv/bin/pytest -q
-    PATH=$PWD/.venv/bin:$PATH chris_plugin_info --dock-image docker.io/fnndsc/pl-shexec:2.0.2 shexec
+    PATH=$PWD/.venv/bin:$PATH chris_plugin_info --dock-image docker.io/fnndsc/pl-shexec:2.0.3 shexec
 
 The CI workflow lints and tests on Python 3.11 to 3.14, builds the image on every push to ``main``, pushes it to Docker Hub and ghcr.io, and on a ``v*`` tag uploads the plugin's description to cube.chrisproject.org. The tag must match ``__version__`` in ``shexec/__init__.py``.
 

@@ -25,7 +25,7 @@ from shexec.models import (
 )
 from shexec.shexec import ShExec, options_build, plugin_run
 
-__version__: str = "2.0.2"
+__version__: str = "2.0.3"
 
 __all__: list[str] = [
     "DirNode",
