@@ -48,7 +48,7 @@ def test_chris_plugin_info_describesThePlugin() -> None:
         argv=[
             str(binDir / "chris_plugin_info"),
             "--dock-image",
-            "docker.io/fnndsc/pl-shexec:2.0.0",
+            "docker.io/fnndsc/pl-shexec:2.0.1",
             "shexec",
         ],
         env={"PATH": f"{binDir}{os.pathsep}{os.environ.get('PATH', '')}"},
@@ -58,4 +58,6 @@ def test_chris_plugin_info_describesThePlugin() -> None:
     description = json.loads(result.stdout)
     assert description["type"] == "ds" and description["selfexec"] == "shexec"
     assert description["version"] == __version__
+    assert description["documentation"] == "https://github.com/FNNDSC/pl-shexec"
+    assert description["authors"] == "FNNDSC <dev@babyMRI.org>"
     assert any(p["name"] == "exec" for p in description["parameters"])

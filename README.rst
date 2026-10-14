@@ -83,7 +83,7 @@ Development
     uv venv --python /usr/bin/python3.14 .venv
     uv pip install --python .venv/bin/python -e ".[dev]"
     .venv/bin/ruff check . && .venv/bin/pytest -q
-    PATH=$PWD/.venv/bin:$PATH chris_plugin_info --dock-image docker.io/fnndsc/pl-shexec:2.0.0 shexec
+    PATH=$PWD/.venv/bin:$PATH chris_plugin_info --dock-image docker.io/fnndsc/pl-shexec:2.0.1 shexec
 
 The CI workflow lints and tests on Python 3.11 to 3.14, builds the image on every push to ``main``, pushes it to Docker Hub and ghcr.io, and on a ``v*`` tag uploads the plugin's description to cube.chrisproject.org. The tag must match ``__version__`` in ``shexec/__init__.py``.
 
