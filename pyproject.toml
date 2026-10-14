@@ -8,7 +8,10 @@ dynamic = ["version"]
 description = "Run a shell-type command over every file of an input tree: a ChRIS DS plugin on pfdo_run"
 readme = "README.rst"
 license = { text = "MIT" }
-authors = [{ name = "FNNDSC", email = "dev@babyMRI.org" }]
+authors = [{ email = "dev@babyMRI.org" }]
+# chris_plugin_info reads the legacy Author, Author-email and Home-page metadata
+# fields, which the [project] table does not emit; setup.cfg supplies them, and the
+# author name lives there alone so Author-email stays a bare address.
 requires-python = ">=3.11"
 dependencies = ["chris_plugin>=0.4.0", "pfdo_run>=4.1.0", "pflog>=2.0.0"]
 classifiers = [
