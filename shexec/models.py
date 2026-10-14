@@ -81,6 +81,10 @@ class PluginSpec:
         minCpu: the CPU ChRIS reserves, in millicores, as ``1000m``.
         minGpu: GPUs required; 0 for none.
         defaults: flag defaults, ``exec`` above all; a derived plugin's usual command.
+        omit: engine flags this plugin does not offer, by destination name, as
+            ``("threads", "threadsSplit")``. Each is removed from the parser, so
+            neither ChRIS's description nor the manual shows it, and its value is
+            pinned to the engine's default, or to ``defaults`` when that names it.
         bannerArt: the ASCII art on the manual's first page.
         bannerTitle: the one-line title under it.
         bannerText: the banner prose; ``{version}`` in it is replaced.
@@ -101,6 +105,7 @@ class PluginSpec:
     minCpu: str = "1000m"
     minGpu: int = 0
     defaults: dict[str, Any] = field(default_factory=dict)
+    omit: tuple[str, ...] = ()
     bannerArt: str = DEFAULT_BANNER_ART
     bannerTitle: str = ""
     bannerText: str = ""

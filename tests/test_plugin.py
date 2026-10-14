@@ -90,3 +90,42 @@ def test_shexecItself_isBuiltByTheFactory() -> None:
     assert (
         SPEC.name == "shexec" and PLUGIN.parser.get_default("exec") == "" and PLUGIN.main.__name__ == "shexec"
     )
+
+
+def test_omittedFlags_absentFromParserDescriptionAndManual_valuePinned(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    plugin: Plugin = plugin_build(spec_make(omit=("threads", "threadsSplit")), singleton=False)
+    names: set[str] = {parameter["name"] for parameter in serialize(plugin.parser)}
+    assert "threads" not in names and "threadsSplit" not in names
+    assert "verbosity" in names
+    options: argparse.Namespace = plugin.parser.parse_args([])
+    assert options.threads == 0 and options.threadsSplit == 1
+    with pytest.raises(SystemExit) as raised:
+        plugin.parser.parse_args(["--threads", "4"])
+    assert raised.value.code == 2
+    capsys.readouterr()
+    assert plugin.main(plugin.parser.parse_args(["--man"]), Path("/tmp"), Path("/tmp")) == 0
+    manual: str = capsys.readouterr().out
+    assert "[--threads" not in manual and "[--threadsSplit" not in manual
+    assert "[--verbosity" in manual
+
+
+def test_omittedFlag_pinnedBySpecDefault() -> None:
+    plugin: Plugin = plugin_build(
+        spec_make(omit=("threads",), defaults={"exec": COUNT_LINES, "threads": 2}), singleton=False
+    )
+    assert plugin.parser.parse_args([]).threads == 2
+    assert "threads" not in {parameter["name"] for parameter in serialize(plugin.parser)}
+
+
+def test_omittedFlag_unknownName_refused() -> None:
+    with pytest.raises(ValueError, match="threadz"):
+        plugin_build(spec_make(omit=("threadz",)), singleton=False)
+
+
+def test_omittedFlags_derivedPluginStillRuns(tmp_path: Path) -> None:
+    inputDir, outputDir = tree_make(tmp_path)
+    plugin: Plugin = plugin_build(spec_make(omit=("threads", "threadsSplit")), singleton=False)
+    assert plugin.main(plugin.parser.parse_args(["--verbosity", "0"]), inputDir, outputDir) == 0
+    assert (outputDir / "sub-01" / "jobs.jsonl").exists()
