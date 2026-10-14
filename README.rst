@@ -146,7 +146,7 @@ Development
     .venv/bin/ruff check . && .venv/bin/pytest -q
     PATH=$PWD/.venv/bin:$PATH chris_plugin_info --dock-image docker.io/fnndsc/pl-shexec:2.1.0 shexec
 
-The CI workflow lints and tests on Python 3.11 to 3.14, builds the image on every push to ``main``, pushes it to Docker Hub and ghcr.io, and on a ``v*`` tag uploads the plugin's description to cube.chrisproject.org. The tag must match ``__version__`` in ``shexec/__init__.py``.
+The CI workflow lints and tests on Python 3.11 to 3.14, builds the image on every push to ``main``, pushes it to Docker Hub and ghcr.io, and on a ``v*`` tag uploads the plugin's description to cube.chrisproject.org and publishes the ``shexec`` package to PyPI, so that a plugin built on pl-shexec can depend on it. The tag must match ``__version__`` in ``shexec/__init__.py``.
 
 Layout
 ------

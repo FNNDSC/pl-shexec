@@ -41,7 +41,7 @@ The manual is composed from pfdo_run's parts and the plugin's own. `CLI_DS` is t
 
 == The image and the workflow
 
-The image is `python:3.12-slim` with the tools the template can name, `bc`, `coreutils`, `dcmtk`, `imagemagick`, `perl`, `psmisc`, `tar`, `unzip`, `zip`, a UTF-8 locale, and one `pip install .`; its command is `shexec --man /tmp /tmp`. The workflow lints and tests on Python 3.11 to 3.14 on the host on every push and pull request; on a push to `main` or a version tag it builds the image, runs `shexec --version` and `chris_plugin_info` inside it, pushes it to Docker Hub and ghcr.io, and on a tag checks that the tag matches `__version__` and uploads the plugin's description to cube.chrisproject.org. The test job gates the build.
+The image is `python:3.12-slim` with the tools the template can name, `bc`, `coreutils`, `dcmtk`, `imagemagick`, `perl`, `psmisc`, `tar`, `unzip`, `zip`, a UTF-8 locale, and one `pip install .`; its command is `shexec --man /tmp /tmp`. The workflow lints and tests on Python 3.11 to 3.14 on the host on every push and pull request; on a push to `main` or a version tag it builds the image, runs `shexec --version` and `chris_plugin_info` inside it, pushes it to Docker Hub and ghcr.io, and on a tag checks that the tag matches `__version__`, uploads the plugin's description to cube.chrisproject.org, and publishes the `shexec` package to PyPI through trusted publishing, since a plugin built on pl-shexec installs it from there. The test job gates the build.
 
 == Verification
 
