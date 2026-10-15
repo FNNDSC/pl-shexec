@@ -130,7 +130,7 @@ From the command line, with the image:
         fnndsc/pl-shexec shexec --fileFilter txt                                \
         --exec "wc -l %{inputWorkingDir}/%{inputWorkingFile}" /incoming /outgoing
 
-    docker run --rm fnndsc/pl-shexec shexec --man /tmp /tmp
+    docker run --rm fnndsc/pl-shexec shexec --man
 
 With Apptainer, ``apptainer exec docker://fnndsc/pl-shexec shexec ...``. The image carries the coreutils, zip and unzip, bc, perl, tar, ImageMagick and the DCMTK tools.
 

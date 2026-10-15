@@ -76,7 +76,9 @@ def test_derivedPlugin_describesItself_forChris() -> None:
 
 def test_derivedPlugin_manualAndVersion_areItsOwn(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     plugin: Plugin = plugin_build(spec_make(), singleton=False)
-    assert plugin.main(plugin.parser.parse_args(["--man"]), tmp_path, tmp_path) == 0
+    with pytest.raises(SystemExit) as exc:
+        plugin.parser.parse_args(["--man"])
+    assert exc.value.code == 0
     out: str = capsys.readouterr().out
     assert "linecount" in out and "Counts lines." in out and "9.9.9" in out and "TAGS" in out
     with pytest.raises(SystemExit):
@@ -105,7 +107,8 @@ def test_omittedFlags_absentFromParserDescriptionAndManual_valuePinned(
         plugin.parser.parse_args(["--threads", "4"])
     assert raised.value.code == 2
     capsys.readouterr()
-    assert plugin.main(plugin.parser.parse_args(["--man"]), Path("/tmp"), Path("/tmp")) == 0
+    with pytest.raises(SystemExit):
+        plugin.parser.parse_args(["--man"])
     manual: str = capsys.readouterr().out
     assert "[--threads" not in manual and "[--threadsSplit" not in manual
     assert "[--verbosity" in manual
