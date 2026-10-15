@@ -228,7 +228,7 @@ def plugin_build(spec: PluginSpec, singleton: bool = True) -> Plugin:
     manual: Manual = manual_build(spec)
 
     def body(options: argparse.Namespace, inputdir: Path, outputdir: Path) -> int:
-        return plugin_run(options, inputdir, outputdir, jobMemory=spec.jobMemory)
+        return plugin_run(options, inputdir, outputdir, jobMemory=spec.jobMemory, name=spec.name)
 
     body.__name__ = spec.name
     body.__qualname__ = spec.name

@@ -100,7 +100,9 @@ def threads_cap(requested: int, jobBytes: int, limit: MemoryLimit | None) -> Thr
     return ThreadsCap(requested=requested, allowed=allowed, jobBytes=jobBytes, limit=limit)
 
 
-def plugin_run(options: argparse.Namespace, inputdir: Path, outputdir: Path, jobMemory: str = "") -> int:
+def plugin_run(
+    options: argparse.Namespace, inputdir: Path, outputdir: Path, jobMemory: str = "", name: str = "shexec"
+) -> int:
     """The body of the plugin's main.
 
     Args:
@@ -110,6 +112,7 @@ def plugin_run(options: argparse.Namespace, inputdir: Path, outputdir: Path, job
         jobMemory: the most memory one job needs, as ``16Gi``; when given,
             ``--threads`` is capped so that the jobs held at once fit in the memory
             the process may use, and the cap is said on standard error.
+        name: the command's name, which begins its messages on standard error.
 
     Returns:
         0 when at least one directory's jobs all succeeded (pftree's stage rule);
@@ -117,17 +120,17 @@ def plugin_run(options: argparse.Namespace, inputdir: Path, outputdir: Path, job
         empty or a flag's value is unusable.
     """
     if not options.exec:
-        print("shexec: --exec is required; see shexec --man", file=sys.stderr)
+        print(f"{name}: --exec is required; see {name} --man", file=sys.stderr)
         return EXIT_USAGE
     if jobMemory and getattr(options, "threads", 0) > 1:
         cap: ThreadsCap = threads_cap(options.threads, memorySize_parse(jobMemory), memory_limit())
         if cap.note():
-            print(f"shexec: {cap.note()}", file=sys.stderr)
+            print(f"{name}: {cap.note()}", file=sys.stderr)
         options = argparse.Namespace(**{**vars(options), "threads": cap.allowed})
     try:
         engine: ShExec = ShExec.fromPlugin(options, inputdir, outputdir)
     except ValueError as err:
-        print(f"shexec: {err}", file=sys.stderr)
+        print(f"{name}: {err}", file=sys.stderr)
         return EXIT_USAGE
     logging_configure(engine.options.verbosity)
     result: RunResult = engine.run()

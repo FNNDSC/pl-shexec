@@ -164,7 +164,7 @@ def test_jobMemory_capsThreads_andSaysSo(
     options: argparse.Namespace = plugin.parser.parse_args(["--threads", "8", "--verbosity", "0"])
     assert plugin.main(options, inputDir, outputDir) == 0
     err: str = capsys.readouterr().err
-    assert "--threads 8 capped to 2 at once: 40.0 GiB (cgroup) / 16 GiB per job" in err
+    assert "linecount: --threads 8 capped to 2 at once: 40.0 GiB (cgroup) / 16 GiB per job" in err
     assert (outputDir / "sub-01" / "jobs.jsonl").exists() and (outputDir / "sub-02" / "jobs.jsonl").exists()
 
 
