@@ -30,6 +30,7 @@ Dependencies:
 from __future__ import annotations
 
 import argparse
+import copy
 import inspect
 import re
 from collections.abc import Callable, Sequence
@@ -202,6 +203,12 @@ def parser_forSpec(spec: PluginSpec) -> argparse.ArgumentParser:
 def plugin_build(spec: PluginSpec, singleton: bool = True) -> Plugin:
     """Make a ChRIS plugin from a spec.
 
+    The command line is parsed by the spec's full parser. The description ChRIS
+    reads is made from a copy without the spec's ``chrisHidden`` flags: chris_plugin
+    describes whatever parser was registered, so the plugin registers the copy and
+    the console script parses with the original. ChRIS passes only the parameters
+    it was told of, so in ChRIS a hidden flag keeps its default.
+
     Args:
         spec: name, version, description for ChRIS, flag defaults, manual text.
         singleton: register with chris_plugin's registry, which ``chris_plugin_info``
@@ -216,22 +223,31 @@ def plugin_build(spec: PluginSpec, singleton: bool = True) -> Plugin:
         ('x', '')
     """
     parser: argparse.ArgumentParser = parser_forSpec(spec)
+    chrisParser: argparse.ArgumentParser = copy.deepcopy(parser)
+    parser_omit(chrisParser, spec.chrisHidden)
     manual: Manual = manual_build(spec)
 
     def body(options: argparse.Namespace, inputdir: Path, outputdir: Path) -> int:
-        return plugin_run(options, inputdir, outputdir)
+        return plugin_run(options, inputdir, outputdir, jobMemory=spec.jobMemory, name=spec.name)
 
     body.__name__ = spec.name
     body.__qualname__ = spec.name
     body.__signature__ = PLUGIN_SIGNATURE  # type: ignore[attr-defined]  # what chris_plugin inspects; this module stringifies annotations
     timedBody: Callable[[argparse.Namespace, Path, Path], int] = timed(spec.name)(body)
-    main: Callable[..., int] = chris_plugin(
-        parser=parser,
-        title=spec.title,
-        category=spec.category,
-        min_memory_limit=spec.minMemory,
-        min_cpu_limit=spec.minCpu,
-        min_gpu_limit=spec.minGpu,
-        singleton=singleton,
-    )(timedBody)
-    return Plugin(name=spec.name, spec=spec, parser=parser, main=main, manual=manual)
+
+    def chris_wrap(using: argparse.ArgumentParser, register: bool) -> Callable[..., int]:
+        return chris_plugin(
+            parser=using,
+            title=spec.title,
+            category=spec.category,
+            min_memory_limit=spec.minMemory,
+            min_cpu_limit=spec.minCpu,
+            min_gpu_limit=spec.minGpu,
+            singleton=register,
+        )(timedBody)
+
+    main: Callable[..., int] = chris_wrap(parser, register=False)
+    if singleton:
+        # Registered for chris_plugin_info only; the console script is ``main``.
+        chris_wrap(chrisParser, register=True)
+    return Plugin(name=spec.name, spec=spec, parser=parser, chrisParser=chrisParser, main=main, manual=manual)

@@ -14,7 +14,7 @@ Dependencies:
 
 from __future__ import annotations
 
-__version__: str = "2.4.0"
+__version__: str = "2.5.0"
 
 from shexec.models import (
     DirNode,
@@ -28,9 +28,10 @@ from shexec.models import (
     ShExecOptions,
     Span,
     StageResult,
+    ThreadsCap,
 )
 from shexec.plugin import plugin_build
-from shexec.shexec import ShExec, options_build, plugin_run
+from shexec.shexec import ShExec, options_build, plugin_run, threads_cap
 
 __all__: list[str] = [
     "DirNode",
@@ -45,8 +46,10 @@ __all__: list[str] = [
     "ShExecOptions",
     "Span",
     "StageResult",
+    "ThreadsCap",
     "__version__",
     "options_build",
     "plugin_build",
     "plugin_run",
+    "threads_cap",
 ]

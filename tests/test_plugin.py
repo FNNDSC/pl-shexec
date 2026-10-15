@@ -11,7 +11,9 @@ import pytest
 from chris_plugin.parameters import serialize
 
 from shexec import Plugin, PluginSpec, plugin_build
+from shexec.models import MemoryLimit
 from shexec.plugin import PLUGIN_SIGNATURE
+from shexec.shexec import threads_cap
 
 COUNT_LINES: str = "wc -l %{inputWorkingDir}/%{inputWorkingFile}"
 
@@ -132,3 +134,48 @@ def test_omittedFlags_derivedPluginStillRuns(tmp_path: Path) -> None:
     plugin: Plugin = plugin_build(spec_make(omit=("threads", "threadsSplit")), singleton=False)
     assert plugin.main(plugin.parser.parse_args(["--verbosity", "0"]), inputDir, outputDir) == 0
     assert (outputDir / "sub-01" / "jobs.jsonl").exists()
+
+
+def test_chrisHidden_onCommandLineAndManual_notInDescription(capsys: pytest.CaptureFixture[str]) -> None:
+    plugin: Plugin = plugin_build(spec_make(chrisHidden=("threads", "threadsSplit")), singleton=False)
+    described: set[str] = {parameter["name"] for parameter in serialize(plugin.chrisParser)}
+    assert "threads" not in described and "threadsSplit" not in described and "verbosity" in described
+    assert "threads" in {parameter["name"] for parameter in serialize(plugin.parser)}
+    assert plugin.parser.parse_args(["--threads", "4"]).threads == 4
+    assert plugin.chrisParser.parse_args([]).threads == 0
+    with pytest.raises(SystemExit):
+        plugin.parser.parse_args(["--man"])
+    assert "[--threads" in capsys.readouterr().out
+
+
+def test_chrisHidden_unknownName_refused() -> None:
+    with pytest.raises(ValueError, match="thread"):
+        plugin_build(spec_make(chrisHidden=("thread",)), singleton=False)
+
+
+def test_jobMemory_capsThreads_andSaysSo(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputDir, outputDir = tree_make(tmp_path)
+    (inputDir / "sub-02").mkdir()
+    (inputDir / "sub-02" / "t1.nii.gz").write_text("1\n")
+    monkeypatch.setattr("shexec.shexec.memory_limit", lambda: MemoryLimit(40 * 2**30, "cgroup"))
+    plugin: Plugin = plugin_build(spec_make(jobMemory="16Gi"), singleton=False)
+    options: argparse.Namespace = plugin.parser.parse_args(["--threads", "8", "--verbosity", "0"])
+    assert plugin.main(options, inputDir, outputDir) == 0
+    err: str = capsys.readouterr().err
+    assert "linecount: --threads 8 capped to 2 at once: 40.0 GiB (cgroup) / 16 GiB per job" in err
+    assert (outputDir / "sub-01" / "jobs.jsonl").exists() and (outputDir / "sub-02" / "jobs.jsonl").exists()
+
+
+def test_threadsCap_note() -> None:
+    gib: int = 2**30
+    assert (
+        threads_cap(4, 16 * gib, MemoryLimit(20 * gib, "meminfo"))
+        .note()
+        .startswith("--threads 4 capped to one at a time")
+    )
+    assert threads_cap(4, 16 * gib, MemoryLimit(80 * gib, "meminfo")).note() == ""
+    assert "not capped" in threads_cap(4, 16 * gib, None).note()
+    assert threads_cap(0, 16 * gib, MemoryLimit(1, "cgroup")).allowed == 0
+    assert threads_cap(4, 0, MemoryLimit(1, "cgroup")).allowed == 4
