@@ -17,11 +17,15 @@ from shexec.plugin import synopsis_build
 
 
 def test_manual_andSynopsis(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(parser.parse_args(["--man"]), tmp_path, tmp_path) == 0
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["--man"])
+    assert exc.value.code == 0
     out: str = capsys.readouterr().out
     body: str = out.split("DESCRIPTION", 1)[1]
     assert "`" not in body and "TAGS" in body and "<inputDir>" in body and "shexec" in body
-    assert main(parser.parse_args(["--synopsis"]), tmp_path, tmp_path) == 0
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["--synopsis"])
+    assert exc.value.code == 0
     assert "TAGS" not in capsys.readouterr().out
 
 
@@ -62,3 +66,13 @@ def test_chris_plugin_info_describesThePlugin() -> None:
     assert description["documentation"] == "https://github.com/FNNDSC/pl-shexec"
     assert description["authors"] == "FNNDSC <dev@babyMRI.org>"
     assert any(p["name"] == "exec" for p in description["parameters"])
+
+
+def test_consoleScript_manNeedsNoDirectories(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("sys.argv", ["shexec", "--man"])
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 0
+    assert "TAGS" in capsys.readouterr().out

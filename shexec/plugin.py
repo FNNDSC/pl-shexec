@@ -38,7 +38,7 @@ from pathlib import Path
 from chris_plugin import chris_plugin
 from pfdo_run.__main__ import ARGS_SYNOPSIS_DS, CLI_DS, TAG_HELP, parser_build
 from pflog import timed
-from pftree.manual import Manual, manual_print
+from pftree.manual import Manual, manual_attach
 
 from shexec.models import Plugin, PluginSpec
 from shexec.shexec import plugin_run
@@ -189,11 +189,13 @@ def parser_forSpec(spec: PluginSpec) -> argparse.ArgumentParser:
     The defaults are set on the parser rather than applied afterwards, so the
     description ``chris_plugin_info`` serialises carries them and ChRIS shows them.
     They are set after the omission, so a spec can pin an omitted flag to a value
-    of its own.
+    of its own. ``--man`` and ``--synopsis`` print the plugin's own manual and exit as
+    they are read, so they need no ``inputdir outputdir``.
     """
     parser: argparse.ArgumentParser = parser_build(standalone=False, command=spec.name, version=spec.version)
     parser_omit(parser, spec.omit)
     parser.set_defaults(**spec.defaults)
+    manual_attach(parser, manual_build(spec))
     return parser
 
 
@@ -217,9 +219,6 @@ def plugin_build(spec: PluginSpec, singleton: bool = True) -> Plugin:
     manual: Manual = manual_build(spec)
 
     def body(options: argparse.Namespace, inputdir: Path, outputdir: Path) -> int:
-        if options.man or options.synopsis:
-            manual_print(manual, shortOnly=not options.man)
-            return 0
         return plugin_run(options, inputdir, outputdir)
 
     body.__name__ = spec.name

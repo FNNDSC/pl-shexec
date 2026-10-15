@@ -17,4 +17,4 @@ WORKDIR /usr/local/src/pl-shexec
 COPY . .
 RUN pip install --no-cache-dir .
 
-CMD ["shexec", "--man", "/tmp", "/tmp"]
+CMD ["shexec", "--man"]

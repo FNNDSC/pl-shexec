@@ -101,6 +101,7 @@ jobs:
         run: |
           dock_image=${{ steps.info.outputs.local_tag }}
           docker run --rm $dock_image shexec --version
+          docker run --rm $dock_image shexec --man > /dev/null
           docker run --rm $dock_image chris_plugin_info --dock-image $dock_image shexec > /dev/null
 
       - name: Login to DockerHub
