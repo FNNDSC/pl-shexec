@@ -34,9 +34,10 @@ The template
 ``%{inputWorkingDir}``      the input directory being processed
 ``%{outputWorkingDir}``     its counterpart in the output tree
 ``%{inputWorkingFile}``     the file being processed
-``%{volumeName}``           the volume the file stands for: a ``.dcm``
-                            file's directory name, any other file's name
-                            less its extension (``t1.nii.gz`` is ``t1``)
+``%{volumeName}``           the volume the file stands for: the directory's
+                            name for a volume alone in it or a ``.dcm``
+                            series; for a file beside other volumes, its
+                            name less its extension (``scan01.nii.gz``)
 ==========================  ==============================================
 
 Functions derive one name from another: ``%{inputWorkingFile|rmext}.png`` turns ``scan.jpg`` into ``scan.png``; ``%{inputWorkingDir|basename}`` is the directory's own name. Every flag of the plugin is a tag too, and so are ``%{timestamp}``, ``%{hostname}`` and ``%{user}``. The grammar is `pftag <https://github.com/FNNDSC/pftag>`_'s; ``shexec --man`` lists it under TAGS. A template with no tag draws a warning, since the same command would then run for every file.
