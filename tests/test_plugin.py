@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import pytest
+from chris_plugin import _registration as chris_registration
 from chris_plugin.parameters import serialize
 
 from shexec import Plugin, PluginSpec, plugin_build
@@ -179,3 +180,17 @@ def test_threadsCap_note() -> None:
     assert "not capped" in threads_cap(4, 16 * gib, None).note()
     assert threads_cap(0, 16 * gib, MemoryLimit(1, "cgroup")).allowed == 0
     assert threads_cap(4, 0, MemoryLimit(1, "cgroup")).allowed == 4
+
+
+def test_minGpu_describesAMaximumCubeAccepts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(chris_registration, "_memory", [])
+    plugin_build(spec_make(minGpu=1), singleton=True)
+    details = chris_registration.get_registered()
+    assert (details.min_gpu_limit, details.max_gpu_limit) == (1, 1)
+    monkeypatch.setattr(chris_registration, "_memory", [])
+    plugin_build(spec_make(minGpu=1, maxGpu=2), singleton=True)
+    assert chris_registration.get_registered().max_gpu_limit == 2
+    monkeypatch.setattr(chris_registration, "_memory", [])
+    plugin_build(spec_make(), singleton=True)
+    details = chris_registration.get_registered()
+    assert (details.min_gpu_limit, details.max_gpu_limit) == (0, 0)

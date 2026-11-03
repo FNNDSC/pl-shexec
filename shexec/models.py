@@ -83,6 +83,9 @@ class PluginSpec:
         minMemory: the memory ChRIS reserves, as ``2Gi``.
         minCpu: the CPU ChRIS reserves, in millicores, as ``1000m``.
         minGpu: GPUs required; 0 for none.
+        maxGpu: GPUs a run may be given; 0 means as many as ``minGpu``. CUBE
+            refuses a description whose minimum exceeds its maximum, and
+            chris_plugin writes a maximum of 0 unless told otherwise.
         defaults: flag defaults, ``exec`` above all; a derived plugin's usual command.
         omit: engine flags this plugin does not offer, by destination name, as
             ``("threads", "threadsSplit")``. Each is removed from the parser, so
@@ -114,6 +117,7 @@ class PluginSpec:
     minMemory: str = "2Gi"
     minCpu: str = "1000m"
     minGpu: int = 0
+    maxGpu: int = 0
     defaults: dict[str, Any] = field(default_factory=dict)
     omit: tuple[str, ...] = ()
     chrisHidden: tuple[str, ...] = ()
