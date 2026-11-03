@@ -14,7 +14,7 @@ Dependencies:
 
 from __future__ import annotations
 
-__version__: str = "2.5.0"
+__version__: str = "2.6.0"
 
 from shexec.models import (
     DirNode,
