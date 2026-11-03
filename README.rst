@@ -12,13 +12,13 @@ pl-shexec
                         %{outputWorkingDir}/%{inputWorkingFile|rmext}.png"      \
         /incoming /outgoing
 
-It is also the design for wrapping a large existing program as a plugin. Put the program in the image, set the default command, and the plugin is done: the program's whole command line stays available through the template rather than a hand-picked subset of flags, and the tree walk, the records, the parallelism and the exit status come from the stack. With for example FreeSurfer in the image, one ``recon-all`` per subject directory is:
+It is also the design for wrapping a large existing program as a plugin. Put the program in the image, set the default command, and the plugin is done: the program's whole command line stays available through the template rather than a hand-picked subset of flags, and the tree walk, the records, the parallelism and the exit status come from the stack. With for example FreeSurfer in the image, one ``recon-all`` per scan, each NIfTI file or DICOM series, is:
 
 .. code-block:: bash
 
-    shexec --analyzeFileIndex f --fileFilter 'glob:*.nii.gz'                     \
+    shexec --analyzeFileIndex v --fileFilter 'glob:*.nii.gz,glob:*.dcm'          \
         --exec "recon-all -all -i %{inputWorkingDir}/%{inputWorkingFile}
-                          -s %{inputWorkingDir|basename} -sd %{outputWorkingDir}" \
+                          -s %{volumeName} -sd %{outputWorkingDir}"              \
         /incoming /outgoing
 
 pl-freesurfer is an example of the pattern: a plugin that depends on this one the way this one depends on pfdo_run, contributing the FreeSurfer image, that template as the default ``--exec``, and nothing else. See `Building a plugin on pl-shexec`_.
@@ -28,12 +28,15 @@ The engine is `pfdo_run <https://github.com/FNNDSC/pfdo_run>`_; the plugin is pf
 The template
 ------------
 
-``--exec`` is not a shell command. It is a template whose ``%{...}`` tags name the file and directories in hand, resolved once per file, and run directly without a shell, so a path with a space in it stays one argument and nothing is interpreted that was not written. Three tags describe the job:
+``--exec`` is not a shell command. It is a template whose ``%{...}`` tags name the file and directories in hand, resolved once per file, and run directly without a shell, so a path with a space in it stays one argument and nothing is interpreted that was not written. Four tags describe the job:
 
 ==========================  ==============================================
 ``%{inputWorkingDir}``      the input directory being processed
 ``%{outputWorkingDir}``     its counterpart in the output tree
 ``%{inputWorkingFile}``     the file being processed
+``%{volumeName}``           the volume the file stands for: a ``.dcm``
+                            file's directory name, any other file's name
+                            less its extension (``t1.nii.gz`` is ``t1``)
 ==========================  ==============================================
 
 Functions derive one name from another: ``%{inputWorkingFile|rmext}.png`` turns ``scan.jpg`` into ``scan.png``; ``%{inputWorkingDir|basename}`` is the directory's own name. Every flag of the plugin is a tag too, and so are ``%{timestamp}``, ``%{hostname}`` and ``%{user}``. The grammar is `pftag <https://github.com/FNNDSC/pftag>`_'s; ``shexec --man`` lists it under TAGS. A template with no tag draws a warning, since the same command would then run for every file.
@@ -63,9 +66,9 @@ The plugin's own run is timed by `pflog <https://github.com/FNNDSC/pflog>`_: one
 Selecting files and directories
 -------------------------------
 
-The filters are pftree's. ``--fileFilter`` and ``--dirFilter`` take substrings, or ``glob:`` and ``re:`` patterns, joined by ``--fileFilterLogic`` and ``--dirFilterLogic``; ``--maxDepth`` bounds the descent. ``--analyzeFileIndex`` chooses which of a directory's selected files get the command: ``a`` for all, ``f`` for the first, ``l`` for the last, ``m`` for the middle, or an index. ``f`` is how one command runs per directory, started on the first file, as for a DICOM series.
+The filters are pftree's. ``--fileFilter`` and ``--dirFilter`` take substrings, or ``glob:`` and ``re:`` patterns, joined by ``--fileFilterLogic`` and ``--dirFilterLogic``; ``--maxDepth`` bounds the descent. ``--analyzeFileIndex`` chooses which of a directory's selected files get the command: ``a`` for all, ``f`` for the first, ``l`` for the last, ``m`` for the middle, ``v`` one per volume, or an index. ``f`` is how one command runs per directory, started on the first file, as for a DICOM series. ``v`` is one command per volume: the ``.dcm`` files of a directory together are one, started on the first, and every other selected file is one of its own, so a folder of three NIfTI scans gives three commands and a series beside them a fourth. ``--fileFilter`` decides which files count, so a filter naming the input types keeps sidecars such as ``.json`` out. Any other choice that leaves out a volume ``v`` would have run is named in a warning.
 
-Directories run in parallel under ``--threads``. At ``--verbosity 2`` each command's output streams to the console as it runs.
+Directories run in parallel under ``--threads``; the volumes of one directory run one after another. At ``--verbosity 2`` each command's output streams to the console as it runs.
 
 Exit status
 -----------
@@ -79,7 +82,7 @@ A plugin for a program with its own command line, FreeSurfer, ANTs, FSL, DCMTK, 
 
 - the image carries the program, with whatever licence or data it needs;
 - the default ``--exec`` is the program's usual invocation as a template, so the common case needs no command at all and the unusual case overrides it;
-- the default ``--analyzeFileIndex`` chooses the unit, ``f`` for one run per directory, as for a subject or a DICOM series, ``a`` for one run per file.
+- the default ``--analyzeFileIndex`` chooses the unit, ``v`` for one run per volume, a scan file or a DICOM series, ``f`` for one run per directory, ``a`` for one run per file.
 
 The user of such a plugin gets the program's entire interface, because anything the program accepts can be written into the template, and gets the same records, the same filters, the same threads and the same truthful exit status as every other plugin on the stack. This is the reason pl-shexec exists in the form it has.
 
@@ -97,7 +100,7 @@ pl-shexec is a library as well as a plugin, in the same way pfdo_run is a librar
 
     RECON_ALL: str = (
         "recon-all -all -i %{inputWorkingDir}/%{inputWorkingFile} "
-        "-s %{inputWorkingDir|basename} -sd %{outputWorkingDir}"
+        "-s %{volumeName} -sd %{outputWorkingDir}"
     )
 
     PLUGIN = plugin_build(PluginSpec(
@@ -106,7 +109,7 @@ pl-shexec is a library as well as a plugin, in the same way pfdo_run is a librar
         title="FreeSurfer recon-all over every subject",
         minMemory="8Gi",
         minCpu="4000m",
-        defaults={"exec": RECON_ALL, "analyzeFileIndex": "f", "fileFilter": "glob:*.nii.gz"},
+        defaults={"exec": RECON_ALL, "analyzeFileIndex": "v", "fileFilter": "glob:*.nii.gz,glob:*.nii,glob:*.mgz,glob:*.dcm"},
         bannerTitle="FreeSurfer recon-all over an input tree",
         description=DESCRIPTION,
         examples=EXAMPLES,

@@ -18,7 +18,7 @@ Key components:
 Typical usage:
     PLUGIN: Plugin = plugin_build(PluginSpec(
         name="freesurfer", version=__version__, title="FreeSurfer recon-all",
-        defaults={"exec": RECON_ALL, "analyzeFileIndex": "f", "fileFilter": "glob:*.nii.gz"},
+        defaults={"exec": RECON_ALL, "analyzeFileIndex": "v", "fileFilter": "glob:*.nii.gz,glob:*.dcm"},
         minMemory="8Gi", minCpu="4000m",
     ))
     main = PLUGIN.main
