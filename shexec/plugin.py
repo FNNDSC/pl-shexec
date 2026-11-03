@@ -243,6 +243,7 @@ def plugin_build(spec: PluginSpec, singleton: bool = True) -> Plugin:
             min_memory_limit=spec.minMemory,
             min_cpu_limit=spec.minCpu,
             min_gpu_limit=spec.minGpu,
+            max_gpu_limit=max(spec.maxGpu, spec.minGpu),
             singleton=register,
         )(timedBody)
 
